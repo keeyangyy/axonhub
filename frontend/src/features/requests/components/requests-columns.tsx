@@ -431,11 +431,18 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
 
         const hitRate = promptTokens > 0 ? (cachedTokens / promptTokens) * 100 : 0;
         const isLowHitRate = hitRate < 80 && promptTokens >= 40000;
+        const isHighHitRate = hitRate >= 95;
+
+        const hitRateColor = isLowHitRate
+          ? 'font-medium text-red-600 dark:text-red-400'
+          : isHighHitRate
+            ? 'font-medium text-green-600 dark:text-green-400'
+            : 'text-muted-foreground';
 
         return (
           <div className='text-xs'>
             <div className='text-sm font-medium'>{cachedTokens.toLocaleString()}</div>
-            <div className={isLowHitRate ? 'font-medium text-red-600 dark:text-red-400' : 'text-muted-foreground'}>
+            <div className={hitRateColor}>
               {t('requests.columns.cacheHitRate', {
                 rate: hitRate.toFixed(1),
               })}
@@ -526,9 +533,17 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
           return <span className='font-mono text-xs'>{t('requests.duration.total', { duration: formatDuration(request.metricsLatencyMs) })}</span>;
         }
 
+        const firstTokenMs = request.metricsFirstTokenLatencyMs ?? 0;
+        const firstTokenColor =
+          firstTokenMs <= 5000
+            ? 'text-green-600 dark:text-green-400'
+            : firstTokenMs > 15000
+              ? 'text-red-600 dark:text-red-400'
+              : 'text-muted-foreground';
+
         return (
           <div className='min-w-[128px] font-mono text-xs'>
-            {request.metricsFirstTokenLatencyMs != null && <div>{t('requests.duration.firstToken', { duration: formatDuration(request.metricsFirstTokenLatencyMs) })}</div>}
+            {request.metricsFirstTokenLatencyMs != null && <div className={firstTokenColor}>{t('requests.duration.firstToken', { duration: formatDuration(request.metricsFirstTokenLatencyMs) })}</div>}
             <div className='text-muted-foreground'>{t('requests.duration.total', { duration: formatDuration(request.metricsLatencyMs) })}</div>
           </div>
         );
@@ -541,7 +556,18 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
       header: ({ column }) => <DataTableColumnHeader column={column} title={t('requests.columns.tokensPerSecond')} />,
       enableSorting: true,
       enableHiding: true,
-      cell: ({ row }) => <span className='font-mono text-xs'>{calculateTokensPerSecond(row.original)}</span>,
+      cell: ({ row }) => {
+        const tps = getTokensPerSecondValue(row.original) ?? 0;
+        const tpsColor =
+          tps > 100
+            ? 'font-mono text-xs text-green-600 dark:text-green-400'
+            : tps > 50
+              ? 'font-mono text-xs text-blue-600 dark:text-blue-400'
+              : tps < 10
+                ? 'font-mono text-xs text-red-600 dark:text-red-400'
+                : 'font-mono text-xs';
+        return <span className={tpsColor}>{calculateTokensPerSecond(row.original)}</span>;
+      },
       sortingFn: (rowA, rowB) => (getTokensPerSecondValue(rowA.original) ?? 0) - (getTokensPerSecondValue(rowB.original) ?? 0),
     },
     {
