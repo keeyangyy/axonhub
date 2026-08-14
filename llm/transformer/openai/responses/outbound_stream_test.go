@@ -86,6 +86,14 @@ func TestOutboundTransformer_StreamTransformation_WithTestData(t *testing.T) {
 
 			// exclude the last DONE event
 			for i, expectedEvent := range expectedEvents[:len(expectedEvents)-1] {
+				// Echo fields are carried via TransformerMetadata and tested
+				// separately; strip them for stream transformation comparison.
+				if actual := actualLLMResponses[i]; actual != nil && actual.TransformerMetadata != nil {
+					delete(actual.TransformerMetadata, responsesEchoFieldsTransformerMetadataKey)
+					if len(actual.TransformerMetadata) == 0 {
+						actual.TransformerMetadata = nil
+					}
+				}
 				if !xtest.Equal(expectedEvent, actualLLMResponses[i]) {
 					t.Fatalf("event %d mismatch:\n%s", i, cmp.Diff(expectedEvent, actualLLMResponses[i]))
 				}
@@ -1263,4 +1271,140 @@ func TestOutboundTransformer_TransformStream_CreatedAtCompatibility(t *testing.T
 			require.Equal(t, int64(1786360449), last.Created)
 		})
 	}
+}
+
+func TestOutboundTransformer_TransformStream_ToolSearchCallLifecycle(t *testing.T) {
+	callID := "call_search_123"
+	events := []*httpclient.StreamEvent{
+		{Type: "response.created", Data: []byte(`{"type":"response.created","response":{"id":"resp_tool_search","object":"response","created_at":1700000000,"model":"gpt-5","status":"in_progress","output":[]}}`)},
+		{Type: "response.output_item.added", Data: []byte(`{"type":"response.output_item.added","output_index":0,"item":{"id":"ts_123","type":"tool_search_call","status":"in_progress","call_id":"call_search_123","execution":"client","arguments":""}}`)},
+		{Type: "response.function_call_arguments.delta", Data: []byte(`{"type":"response.function_call_arguments.delta","item_id":"ts_123","output_index":0,"delta":"{\"query\":"}`)},
+		{Type: "response.function_call_arguments.delta", Data: []byte(`{"type":"response.function_call_arguments.delta","item_id":"ts_123","output_index":0,"delta":"\"agents\"}"}`)},
+		{Type: "response.function_call_arguments.done", Data: []byte(`{"type":"response.function_call_arguments.done","item_id":"ts_123","output_index":0}`)},
+		{Type: "response.output_item.done", Data: []byte(`{"type":"response.output_item.done","output_index":0,"item":{"id":"ts_123","type":"tool_search_call","status":"completed","call_id":"call_search_123","execution":"client"}}`)},
+		{Type: "response.completed", Data: []byte(`{"type":"response.completed","response":{"id":"resp_tool_search","object":"response","created_at":1700000000,"model":"gpt-5","status":"completed","output":[]}}`)},
+	}
+
+	stream := newResponsesOutboundStream(streams.AppendStream(streams.SliceStream(events), lo.ToPtr(llm.DoneStreamEvent)))
+	actual, err := streams.All(streams.NoNil(stream))
+	require.NoError(t, err)
+	require.Len(t, actual, 6)
+
+	added := actual[1].Choices[0].Delta.ToolCalls[0]
+	require.Equal(t, callID, added.ID)
+	require.Equal(t, llm.ToolTypeResponsesToolSearch, added.Type)
+	require.Equal(t, 0, added.Index)
+	require.NotNil(t, added.ResponseToolSearchCall)
+	require.Equal(t, callID, added.ResponseToolSearchCall.CallID)
+	require.Equal(t, "client", added.ResponseToolSearchCall.Execution)
+
+	var arguments strings.Builder
+	for _, response := range actual[2:4] {
+		require.Len(t, response.Choices, 1)
+		require.NotNil(t, response.Choices[0].Delta)
+		require.Len(t, response.Choices[0].Delta.ToolCalls, 1)
+		delta := response.Choices[0].Delta.ToolCalls[0]
+		require.Equal(t, llm.ToolTypeResponsesToolSearch, delta.Type)
+		require.Equal(t, 0, delta.Index)
+		require.NotNil(t, delta.ResponseToolSearchCall)
+		require.Equal(t, callID, delta.ResponseToolSearchCall.CallID)
+		require.Equal(t, "client", delta.ResponseToolSearchCall.Execution)
+		arguments.WriteString(delta.ResponseToolSearchCall.Arguments)
+	}
+	require.JSONEq(t, `{"query":"agents"}`, arguments.String())
+	require.NotNil(t, stream.state.toolCalls[callID])
+	require.NotNil(t, stream.state.toolCalls[callID].ResponseToolSearchCall)
+	require.JSONEq(t, `{"query":"agents"}`, stream.state.toolCalls[callID].ResponseToolSearchCall.Arguments)
+
+	require.Equal(t, "tool_calls", lo.FromPtr(actual[4].Choices[0].FinishReason))
+	require.Equal(t, llm.DoneResponse, actual[5])
+}
+
+func TestOutboundTransformer_TransformStream_ToolSearchArgumentsProvidedOnlyInDone(t *testing.T) {
+	trans, err := NewOutboundTransformer("https://api.openai.com", "test-api-key")
+	require.NoError(t, err)
+
+	callID := "call_search_done"
+	events := []*httpclient.StreamEvent{
+		{Data: []byte(`{"type":"response.created","response":{"id":"resp_ts_done","object":"response","created_at":1700000000,"model":"gpt-5","status":"in_progress","output":[]}}`)},
+		{Data: []byte(`{"type":"response.output_item.added","output_index":0,"item":{"id":"ts_done","type":"tool_search_call","status":"in_progress","call_id":"call_search_done","execution":"client","arguments":""}}`)},
+		{Data: []byte(`{"type":"response.function_call_arguments.done","item_id":"ts_done","output_index":0,"arguments":"{\"query\":\"agents\"}"}`)},
+		{Data: []byte(`{"type":"response.completed","response":{"id":"resp_ts_done","object":"response","created_at":1700000000,"model":"gpt-5","status":"completed","output":[]}}`)},
+	}
+
+	stream, err := trans.TransformStream(t.Context(), nil, streams.SliceStream(events))
+	require.NoError(t, err)
+
+	responses, err := streams.All(stream)
+	require.NoError(t, err)
+
+	var arguments strings.Builder
+
+	argumentChunks := 0
+
+	for _, response := range responses {
+		if response == llm.DoneResponse || len(response.Choices) == 0 || response.Choices[0].Delta == nil {
+			continue
+		}
+
+		for _, toolCall := range response.Choices[0].Delta.ToolCalls {
+			if toolCall.ResponseToolSearchCall == nil || toolCall.ResponseToolSearchCall.Arguments == "" {
+				continue
+			}
+
+			argumentChunks++
+			require.Equal(t, callID, toolCall.ResponseToolSearchCall.CallID)
+			require.Equal(t, "client", toolCall.ResponseToolSearchCall.Execution)
+			arguments.WriteString(toolCall.ResponseToolSearchCall.Arguments)
+		}
+	}
+
+	// The complete arguments arrive only in the done event; downstream must
+	// receive them exactly once without duplicated content.
+	require.Equal(t, 1, argumentChunks)
+	require.JSONEq(t, `{"query":"agents"}`, arguments.String())
+}
+
+func TestOutboundTransformer_TransformStream_CompletedWithUsageCarriesEchoFields(t *testing.T) {
+	trans, err := NewOutboundTransformer("https://api.openai.com", "test-api-key")
+	require.NoError(t, err)
+
+	events := []*httpclient.StreamEvent{
+		{Data: []byte(`{"type":"response.created","response":{"id":"resp_echo_usage","object":"response","created_at":1700000000,"model":"gpt-5","status":"in_progress","output":[],"conversation":{"id":"conv_echo"}}}`)},
+		{Data: []byte(`{"type":"response.output_text.delta","item_id":"msg_1","output_index":0,"content_index":0,"delta":"Hello"}`)},
+		{Data: []byte(`{"type":"response.completed","response":{"id":"resp_echo_usage","object":"response","created_at":1700000000,"model":"gpt-5","status":"completed","output":[],"conversation":{"id":"conv_echo"},"usage":{"input_tokens":10,"output_tokens":5,"total_tokens":15}}}`)},
+	}
+
+	stream, err := trans.TransformStream(t.Context(), nil, streams.SliceStream(events))
+	require.NoError(t, err)
+
+	responses, err := streams.All(stream)
+	require.NoError(t, err)
+
+	var completedChunk *llm.Response
+	var usageChunk *llm.Response
+
+	for _, response := range responses {
+		if response == llm.DoneResponse {
+			continue
+		}
+		if len(response.Choices) > 0 && response.Choices[0].FinishReason != nil {
+			completedChunk = response
+		}
+		if response.Usage != nil && len(response.Choices) == 0 {
+			usageChunk = response
+		}
+	}
+
+	require.NotNil(t, completedChunk)
+	require.NotNil(t, usageChunk)
+	require.NotEmpty(t, usageChunk.Usage)
+
+	raw, ok := completedChunk.TransformerMetadata[responsesEchoFieldsTransformerMetadataKey]
+	require.True(t, ok, "completed chunk must carry echo metadata on the usage path")
+
+	echo, ok := raw.(*Response)
+	require.True(t, ok)
+	require.NotNil(t, echo.Conversation)
+	require.Equal(t, "conv_echo", echo.Conversation.ID)
 }

@@ -25,19 +25,31 @@ import (
 	"github.com/looplj/axonhub/llm/pipeline/cc"
 	"github.com/looplj/axonhub/llm/streams"
 	"github.com/looplj/axonhub/llm/transformer"
+	anthropictransformer "github.com/looplj/axonhub/llm/transformer/anthropic"
+	bailiantransformer "github.com/looplj/axonhub/llm/transformer/bailian"
+	longcattransformer "github.com/looplj/axonhub/llm/transformer/longcat"
+	modelscopetransformer "github.com/looplj/axonhub/llm/transformer/modelscope"
+	moonshottransformer "github.com/looplj/axonhub/llm/transformer/moonshot"
+	openaitransformer "github.com/looplj/axonhub/llm/transformer/openai"
+	xaitransformer "github.com/looplj/axonhub/llm/transformer/xai"
 )
 
 // mockTransformer is a simple mock transformer for testing.
 type mockTransformer struct {
-	aggregatedResponse []byte
-	aggregatedMeta     llm.ResponseMeta
-	aggregatedErr      error
-	apiFormat          llm.APIFormat
-	requestAPIFormat   llm.APIFormat
-	includeEffort      bool
+	aggregatedResponse    []byte
+	aggregatedMeta        llm.ResponseMeta
+	aggregatedErr         error
+	apiFormat             llm.APIFormat
+	requestAPIFormat      llm.APIFormat
+	includeEffort         bool
+	capturedRequest       *llm.Request
+	responsesChatTools    bool
+	nativeResponses       bool
+	responsesCapabilities func(*llm.Request) transformer.ResponsesRequestCapabilities
 }
 
 func (m *mockTransformer) TransformRequest(ctx context.Context, req *llm.Request) (*httpclient.Request, error) {
+	m.capturedRequest = req
 	payload := map[string]any{
 		"model":       req.Model,
 		"messages":    req.Messages,
@@ -224,6 +236,45 @@ func (m *mockTransformer) APIFormat() llm.APIFormat {
 	}
 
 	return llm.APIFormatOpenAIChatCompletion
+}
+
+func (m *mockTransformer) SupportsResponsesChatToolLifecycle() bool {
+	return m.responsesChatTools
+}
+
+func (m *mockTransformer) ResponsesRequestCapabilities(req *llm.Request) transformer.ResponsesRequestCapabilities {
+	if m.responsesCapabilities != nil {
+		return m.responsesCapabilities(req)
+	}
+	return transformer.ResponsesRequestCapabilities{
+		NativeResponses:   m.nativeResponses,
+		ChatToolLifecycle: m.responsesChatTools,
+	}
+}
+
+func TestResponsesRequestCapabilities_UsesExplicitProviderCapability(t *testing.T) {
+	genericOpenAI, err := openaitransformer.NewOutboundTransformer("https://chat.example.com", "test-key")
+	require.NoError(t, err)
+	anthropic, err := anthropictransformer.NewOutboundTransformer("https://anthropic.example.com", "test-key")
+	require.NoError(t, err)
+	moonshot, err := moonshottransformer.NewOutboundTransformer("https://moonshot.example.com", "test-key")
+	require.NoError(t, err)
+	bailian, err := bailiantransformer.NewOutboundTransformer("https://bailian.example.com", "test-key")
+	require.NoError(t, err)
+	longcat, err := longcattransformer.NewOutboundTransformer("https://longcat.example.com", "test-key")
+	require.NoError(t, err)
+	modelscope, err := modelscopetransformer.NewOutboundTransformer("https://modelscope.example.com", "test-key")
+	require.NoError(t, err)
+	xai, err := xaitransformer.NewOutboundTransformer("https://xai.example.com", "test-key")
+	require.NoError(t, err)
+
+	require.True(t, responsesRequestCapabilities(genericOpenAI, &llm.Request{}).ChatToolLifecycle)
+	require.False(t, responsesRequestCapabilities(&mockTransformer{apiFormat: llm.APIFormatOpenAIChatCompletion}, &llm.Request{}).ChatToolLifecycle)
+	// Anthropic declares no Responses capabilities, so lifecycle support stays false.
+	require.False(t, responsesRequestCapabilities(anthropic, &llm.Request{}).ChatToolLifecycle)
+	for _, outbound := range []transformer.Outbound{bailian, longcat, modelscope, xai, moonshot} {
+		require.True(t, responsesRequestCapabilities(outbound, &llm.Request{}).ChatToolLifecycle)
+	}
 }
 
 func TestPersistentOutboundTransformer_TransformRequest_OriginalModelRestoration(t *testing.T) {
@@ -1102,9 +1153,25 @@ func TestPersistentOutboundTransformer_TransformRequest_WithPrepopulatedState(t 
 	require.Equal(t, testChannel, processor.state.CurrentCandidate.Channel)
 }
 
-func TestFilterResponseCustomToolMessagesForNonResponsesOutbound(t *testing.T) {
-	baseRequest := &llm.Request{
+// newResponsesChatToolFilterRequest builds a fresh Responses-format request
+// fixture so each sub-test mutates its own copy instead of sharing state.
+func newResponsesChatToolFilterRequest() *llm.Request {
+	return &llm.Request{
 		APIFormat: llm.APIFormatOpenAIResponse,
+		Tools: []llm.Tool{
+			{Type: llm.ToolTypeFunction, Function: llm.Function{Name: "get_weather"}},
+			{Type: llm.ToolTypeResponsesCustomTool, ResponseCustomTool: &llm.ResponseCustomTool{Name: "apply_patch"}},
+			{Type: llm.ToolTypeResponsesToolSearch, ResponseToolSearch: &llm.ResponseToolSearch{Execution: "client"}},
+			{Type: llm.ToolTypeFunction, Function: llm.Function{Name: "collaboration__spawn_agent", Namespace: "collaboration"}},
+			{Type: llm.ToolTypeFunction, Function: llm.Function{Name: "future_lookup"}, ResponsesSourceType: "future_client_tool"},
+		},
+		ToolChoice: &llm.ToolChoice{
+			ToolChoice: lo.ToPtr("auto"), AllowedToolsSet: true,
+			AllowedTools: []llm.ToolOption{
+				{Type: llm.ToolTypeFunction, Name: "get_weather"},
+				{Type: "custom", Name: "apply_patch"},
+			},
+		},
 		Messages: []llm.Message{
 			{
 				Role: "assistant",
@@ -1126,46 +1193,190 @@ func TestFilterResponseCustomToolMessagesForNonResponsesOutbound(t *testing.T) {
 							Arguments: "{}",
 						},
 					},
+					{
+						ID:   "call_search_1",
+						Type: llm.ToolTypeResponsesToolSearch,
+						ResponseToolSearchCall: &llm.ResponseToolSearchCall{
+							CallID:    "call_search_1",
+							Execution: "client",
+							Arguments: `{"query":"agents"}`,
+						},
+					},
+					{
+						ID:   "call_namespace_1",
+						Type: llm.ToolTypeFunction,
+						Function: llm.FunctionCall{
+							Name:      "spawn_agent",
+							Namespace: "collaboration",
+							Arguments: `{}`,
+						},
+					},
 				},
 			},
 			{
 				Role:       "tool",
-				ToolCallID: func() *string { v := "call_custom_1"; return &v }(),
-				Content: llm.MessageContent{
-					Content: func() *string { v := "custom"; return &v }(),
-				},
+				ToolCallID: lo.ToPtr("call_custom_1"),
+				Content:    llm.MessageContent{Content: lo.ToPtr("custom")},
 			},
 			{
 				Role:       "tool",
-				ToolCallID: func() *string { v := "call_function_1"; return &v }(),
-				Content: llm.MessageContent{
-					Content: func() *string { v := "function"; return &v }(),
-				},
+				ToolCallID: lo.ToPtr("call_function_1"),
+				Content:    llm.MessageContent{Content: lo.ToPtr("function")},
+			},
+			{
+				Role:       "tool",
+				ToolCallID: lo.ToPtr("call_search_1"),
+				Content:    llm.MessageContent{Content: lo.ToPtr("search")},
+			},
+			{
+				Role:       "tool",
+				ToolCallID: lo.ToPtr("call_namespace_1"),
+				Content:    llm.MessageContent{Content: lo.ToPtr("spawned")},
 			},
 		},
 	}
+}
 
-	t.Run("filters when inbound is responses and outbound is not", func(t *testing.T) {
-		got := filterResponseCustomToolMessagesForNonResponsesOutbound(baseRequest, llm.APIFormatOpenAIChatCompletion)
-		require.NotSame(t, baseRequest, got)
+func TestFilterResponsesChatToolMessagesForOutbound(t *testing.T) {
+	t.Run("preserves when outbound Chat adapter supports custom lifecycle", func(t *testing.T) {
+		request := newResponsesChatToolFilterRequest()
+		outbound := &mockTransformer{apiFormat: llm.APIFormatOpenAIChatCompletion, responsesChatTools: true}
+		got := filterResponsesChatToolMessagesForOutbound(request, outbound)
+		require.Same(t, request, got)
+	})
+
+	t.Run("filters and pairs all special calls when Chat outbound has no lifecycle adapter", func(t *testing.T) {
+		request := newResponsesChatToolFilterRequest()
+		outbound := &mockTransformer{apiFormat: llm.APIFormatOpenAIChatCompletion}
+		got := filterResponsesChatToolMessagesForOutbound(request, outbound)
+		require.NotSame(t, request, got)
 		require.Len(t, got.Messages, 2)
 		require.Len(t, got.Messages[0].ToolCalls, 1)
 		require.Equal(t, llm.ToolTypeFunction, got.Messages[0].ToolCalls[0].Type)
 		require.NotNil(t, got.Messages[1].ToolCallID)
 		require.Equal(t, "call_function_1", *got.Messages[1].ToolCallID)
+		require.Len(t, got.Tools, 1)
+		require.Equal(t, "get_weather", got.Tools[0].Function.Name)
+		require.NotNil(t, got.ToolChoice)
+		require.Equal(t, "auto", lo.FromPtr(got.ToolChoice.ToolChoice))
+		require.False(t, got.ToolChoice.AllowedToolsSet)
+
+		// Filtering must leave the original inbound request untouched.
+		require.Len(t, request.Tools, 5)
+		require.Len(t, request.Messages, 5)
+		require.Len(t, request.Messages[0].ToolCalls, 4)
+		require.True(t, request.ToolChoice.AllowedToolsSet)
 	})
 
 	t.Run("does not filter when outbound is responses", func(t *testing.T) {
-		got := filterResponseCustomToolMessagesForNonResponsesOutbound(baseRequest, llm.APIFormatOpenAIResponse)
-		require.Same(t, baseRequest, got)
+		request := newResponsesChatToolFilterRequest()
+		got := filterResponsesChatToolMessagesForOutbound(request, &mockTransformer{apiFormat: llm.APIFormatOpenAIResponse})
+		require.Same(t, request, got)
 	})
 
 	t.Run("does not filter when inbound is not responses", func(t *testing.T) {
-		nonResponsesReq := *baseRequest
-		nonResponsesReq.APIFormat = llm.APIFormatOpenAIChatCompletion
-		got := filterResponseCustomToolMessagesForNonResponsesOutbound(&nonResponsesReq, llm.APIFormatOpenAIChatCompletion)
-		require.Same(t, &nonResponsesReq, got)
+		request := newResponsesChatToolFilterRequest()
+		request.APIFormat = llm.APIFormatOpenAIChatCompletion
+		got := filterResponsesChatToolMessagesForOutbound(request, &mockTransformer{apiFormat: llm.APIFormatOpenAIChatCompletion})
+		require.Same(t, request, got)
 	})
+}
+
+func TestFilterResponsesChatToolMessagesForOutbound_RequestCapabilityMatrix(t *testing.T) {
+	type capabilityKind string
+	const (
+		capabilityNative    capabilityKind = "native"
+		capabilityLifecycle capabilityKind = "chat_lifecycle"
+		capabilityPlain     capabilityKind = "plain_chat"
+	)
+
+	tests := []struct {
+		name        string
+		apiFormat   llm.APIFormat
+		requestType llm.RequestType
+		capability  capabilityKind
+		wantSame    bool
+		wantSpecial bool
+	}{
+		{name: "Responses to native", apiFormat: llm.APIFormatOpenAIResponse, requestType: "", capability: capabilityNative, wantSame: true, wantSpecial: true},
+		{name: "Responses to Chat lifecycle", apiFormat: llm.APIFormatOpenAIResponse, requestType: "", capability: capabilityLifecycle, wantSame: true, wantSpecial: true},
+		{name: "Responses to plain Chat", apiFormat: llm.APIFormatOpenAIResponse, requestType: "", capability: capabilityPlain, wantSpecial: false},
+		{name: "Compact to native", apiFormat: llm.APIFormatOpenAIResponseCompact, requestType: llm.RequestTypeCompact, capability: capabilityNative, wantSame: true, wantSpecial: true},
+		{name: "Compact to Chat lifecycle", apiFormat: llm.APIFormatOpenAIResponseCompact, requestType: llm.RequestTypeCompact, capability: capabilityLifecycle, wantSame: true, wantSpecial: true},
+		{name: "Compact to plain Chat", apiFormat: llm.APIFormatOpenAIResponseCompact, requestType: llm.RequestTypeCompact, capability: capabilityPlain, wantSpecial: false},
+		{name: "Chat to native", apiFormat: llm.APIFormatOpenAIChatCompletion, requestType: "", capability: capabilityNative, wantSame: true, wantSpecial: true},
+		{name: "Chat to Chat lifecycle", apiFormat: llm.APIFormatOpenAIChatCompletion, requestType: "", capability: capabilityLifecycle, wantSame: true, wantSpecial: true},
+		{name: "Chat to plain Chat", apiFormat: llm.APIFormatOpenAIChatCompletion, requestType: "", capability: capabilityPlain, wantSame: true, wantSpecial: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			customCallID := "custom_1"
+			plainCallID := "plain_1"
+			request := &llm.Request{
+				APIFormat:   tt.apiFormat,
+				RequestType: tt.requestType,
+				Messages: []llm.Message{
+					{Role: "user", Content: llm.MessageContent{Content: lo.ToPtr("run")}},
+					{Role: "assistant", ToolCalls: []llm.ToolCall{
+						{
+							ID: customCallID, Type: llm.ToolTypeResponsesCustomTool,
+							ResponseCustomToolCall: &llm.ResponseCustomToolCall{CallID: customCallID, Name: "apply_patch", Input: "patch"},
+						},
+						{ID: plainCallID, Type: llm.ToolTypeFunction, Function: llm.FunctionCall{Name: "lookup", Arguments: `{}`}},
+					}},
+					{Role: "tool", ToolCallID: &customCallID, Content: llm.MessageContent{Content: lo.ToPtr("patched")}},
+					{Role: "tool", ToolCallID: &plainCallID, Content: llm.MessageContent{Content: lo.ToPtr("looked up")}},
+				},
+				Tools: []llm.Tool{
+					{Type: llm.ToolTypeResponsesCustomTool, ResponseCustomTool: &llm.ResponseCustomTool{Name: "apply_patch"}},
+					{Type: llm.ToolTypeFunction, Function: llm.Function{Name: "lookup"}},
+				},
+			}
+			outbound := &mockTransformer{
+				apiFormat: llm.APIFormatOpenAIChatCompletion,
+				responsesCapabilities: func(*llm.Request) transformer.ResponsesRequestCapabilities {
+					return transformer.ResponsesRequestCapabilities{
+						NativeResponses:   tt.capability == capabilityNative,
+						ChatToolLifecycle: tt.capability == capabilityLifecycle,
+					}
+				},
+			}
+
+			got := filterResponsesChatToolMessagesForOutbound(request, outbound)
+			if tt.wantSame {
+				require.Same(t, request, got)
+			} else {
+				require.NotSame(t, request, got)
+			}
+
+			callIDs := make(map[string]struct{})
+			outputIDs := make(map[string]struct{})
+			for _, message := range got.Messages {
+				for _, call := range message.ToolCalls {
+					callIDs[call.ID] = struct{}{}
+				}
+				if message.ToolCallID != nil {
+					outputIDs[*message.ToolCallID] = struct{}{}
+				}
+			}
+			for outputID := range outputIDs {
+				require.Contains(t, callIDs, outputID, "tool output must retain a matching assistant call")
+			}
+			_, hasCustomCall := callIDs[customCallID]
+			require.Equal(t, tt.wantSpecial, hasCustomCall)
+			_, hasPlainCall := callIDs[plainCallID]
+			require.True(t, hasPlainCall)
+			_, hasCustomOutput := outputIDs[customCallID]
+			require.Equal(t, tt.wantSpecial, hasCustomOutput)
+			_, hasPlainOutput := outputIDs[plainCallID]
+			require.True(t, hasPlainOutput)
+
+			toolTypes := lo.Map(got.Tools, func(tool llm.Tool, _ int) string { return tool.Type })
+			require.Equal(t, tt.wantSpecial, lo.Contains(toolTypes, llm.ToolTypeResponsesCustomTool))
+			require.True(t, lo.Contains(toolTypes, llm.ToolTypeFunction))
+		})
+	}
 }
 
 // ========== 429 Retry-After Tests ==========

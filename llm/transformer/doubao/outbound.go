@@ -34,6 +34,12 @@ type OutboundTransformer struct {
 	APIKeyProvider auth.APIKeyProvider
 }
 
+var _ transformer.ResponsesRequestCapabilitiesProvider = (*OutboundTransformer)(nil)
+
+func (t *OutboundTransformer) ResponsesRequestCapabilities(req *llm.Request) transformer.ResponsesRequestCapabilities {
+	return transformer.ResponsesRequestCapabilitiesOf(t.Outbound, req)
+}
+
 // NewOutboundTransformer creates a new Doubao OutboundTransformer with legacy parameters.
 // Deprecated: Use NewOutboundTransformerWithConfig instead.
 func NewOutboundTransformer(baseURL, apiKey string) (transformer.Outbound, error) {
