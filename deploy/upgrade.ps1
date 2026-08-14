@@ -4,6 +4,17 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# 脚本执行完毕后倒计时等待，便于查看输出（程序调用时自动跳过）
+function Wait-Exit {
+  if($env:AXONHUB_NO_WAIT -eq '1'){ return }
+  if([Console]::IsInputRedirected){ return }
+  for($i = 10; $i -ge 1; $i--){
+    Write-Host "`r窗口将在 $i 秒后自动关闭，按任意键立即关闭...  " -NoNewline
+    if([Console]::KeyAvailable){ [void][Console]::ReadKey($true); break }
+    Start-Sleep -Seconds 1
+  }
+  Write-Host ''
+}
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 function Write-Info([string]$m){ Write-Host "[INFO] $m" -ForegroundColor Cyan }
@@ -87,7 +98,7 @@ function Get-LatestReleaseTag {
       if($loc -match '/tag/([^/]+)$'){ return $matches[1] }
     }
     Write-Err "Could not determine latest release version"
-    exit 1
+    Wait-Exit; exit 1
   }
 }
 
@@ -130,7 +141,7 @@ function Get-AssetUrl([string]$version,[string]$platform){
     return $candidate
   } catch {
     Write-Err "Could not find asset for platform $platform in release $version"
-    exit 1
+    Wait-Exit; exit 1
   }
 }
 
@@ -174,7 +185,7 @@ $BinaryPath = Join-Path $BaseDir 'axonhub.exe'
 if(-not (Test-Path $BinaryPath)){
   Write-Err "AxonHub is not installed at $BinaryPath"
   Write-Info 'Please run install.bat first'
-  exit 1
+  Wait-Exit; exit 1
 }
 
 $CurrentVersion = Get-CurrentVersion $BinaryPath
@@ -198,7 +209,7 @@ if($CurrentVersion -eq 'unknown'){
 
 if(-not $NeedsUpgrade -and -not $Force){
   Write-Success "AxonHub is already up to date ($CurrentVersion)"
-  exit 0
+  Wait-Exit; exit 0
 }
 
 if($Force -and $CurrentVersion -ne 'unknown'){
@@ -209,7 +220,7 @@ if(-not $Yes){
   $reply = Read-Host "Upgrade AxonHub from $CurrentVersion to $LatestVersion? [y/N]"
   if($reply -notmatch '^[Yy]$'){
     Write-Info 'Upgrade cancelled'
-    exit 0
+    Wait-Exit; exit 0
   }
 }
 
@@ -243,3 +254,5 @@ if(Test-Path $restartScript){
 }
 
 Write-Success 'Upgrade completed!'
+
+Wait-Exit

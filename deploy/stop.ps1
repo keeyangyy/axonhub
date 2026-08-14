@@ -4,6 +4,17 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# 脚本执行完毕后倒计时等待，便于查看输出（程序调用时自动跳过）
+function Wait-Exit {
+  if($env:AXONHUB_NO_WAIT -eq '1'){ return }
+  if([Console]::IsInputRedirected){ return }
+  for($i = 10; $i -ge 1; $i--){
+    Write-Host "`r窗口将在 $i 秒后自动关闭，按任意键立即关闭...  " -NoNewline
+    if([Console]::KeyAvailable){ [void][Console]::ReadKey($true); break }
+    Start-Sleep -Seconds 1
+  }
+  Write-Host ''
+}
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 function Write-Info([string]$m){ Write-Host "[INFO] $m" -ForegroundColor Cyan }
@@ -139,12 +150,12 @@ if($Force){
       Remove-Item -Force $PidFile -ErrorAction SilentlyContinue
     } else {
       Write-Err 'Failed to force-stop some processes'
-      exit 1
+      Wait-Exit; exit 1
     }
   } else {
     Write-Info 'No AxonHub processes found'
   }
-  exit 0
+  Wait-Exit; exit 0
 }
 
 Write-Info 'Stopping AxonHub...'
@@ -154,10 +165,12 @@ if(-not $stopped){ if(Stop-ByProcessName){ $stopped = $true } }
 if(-not $stopped){
   if(Check-Running){
     Write-Err 'Failed to stop all AxonHub processes'
-    exit 1
+    Wait-Exit; exit 1
   } else {
     Write-Info 'No AxonHub processes were running'
   }
 }
 Remove-Item -Force $PidFile -ErrorAction SilentlyContinue
 Write-Success 'AxonHub has been stopped'
+
+Wait-Exit
