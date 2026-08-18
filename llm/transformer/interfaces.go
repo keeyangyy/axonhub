@@ -66,17 +66,6 @@ type PassThroughBodyPolicy interface {
 	AllowPassThroughBody(ctx context.Context, llmReq *llm.Request, providerReq *httpclient.Request) bool
 }
 
-// ResponsesChatToolLifecycleCapable is an optional outbound capability for
-// transformers that can reversibly encode Responses-only tool declarations,
-// history calls, and provider responses through Chat Completions.
-//
-// Returning Chat Completions from APIFormat is insufficient: provider-specific
-// transformers may implement their own request codec instead of delegating to
-// the generic OpenAI Responses-to-Chat adapter.
-type ResponsesChatToolLifecycleCapable interface {
-	SupportsResponsesChatToolLifecycle() bool
-}
-
 // ResponsesRequestCapabilities describes how one outbound will handle a
 // specific Responses-origin request. Some providers choose their upstream
 // protocol from the resolved model, so APIFormat alone is not sufficient.
@@ -92,13 +81,22 @@ type ResponsesRequestCapabilitiesProvider interface {
 }
 
 // ResponsesRequestCapabilitiesOf delegates to t's
-// ResponsesRequestCapabilitiesProvider implementation when t provides one,
-// and returns the zero value otherwise. Wrapper transformers that embed
-// another Outbound should pass the embedded transformer so capability
-// reporting is forwarded without duplicating the delegation logic.
+// ResponsesRequestCapabilitiesProvider implementation when t provides one.
+// Otherwise, Responses API formats imply native Responses support. Wrapper
+// transformers that embed another Outbound should pass the embedded
+// transformer so capability reporting is forwarded without duplicating the
+// delegation logic.
 func ResponsesRequestCapabilitiesOf(t Outbound, req *llm.Request) ResponsesRequestCapabilities {
+	if t == nil {
+		return ResponsesRequestCapabilities{}
+	}
+
 	if capable, ok := t.(ResponsesRequestCapabilitiesProvider); ok {
 		return capable.ResponsesRequestCapabilities(req)
+	}
+
+	if llm.IsOpenAIResponsesFormat(t.APIFormat()) {
+		return ResponsesRequestCapabilities{NativeResponses: true}
 	}
 
 	return ResponsesRequestCapabilities{}
