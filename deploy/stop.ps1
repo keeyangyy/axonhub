@@ -54,38 +54,38 @@ function Stop-ByPid(){
     return $false
   }
   try {
-    $pid = Get-Content -Path $PidFile -ErrorAction Stop
+    $runningPid = Get-Content -Path $PidFile -ErrorAction Stop
   } catch {
     Write-Warn 'Unable to read PID file'
     Remove-Item -Force $PidFile -ErrorAction SilentlyContinue
     return $false
   }
-  if(-not ($pid -match '^[0-9]+$')){
-    Write-Err "Invalid PID in file: $pid"
+  if(-not ($runningPid -match '^[0-9]+$')){
+    Write-Err "Invalid PID in file: $runningPid"
     Remove-Item -Force $PidFile -ErrorAction SilentlyContinue
     return $false
   }
-  $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
+  $proc = Get-Process -Id $runningPid -ErrorAction SilentlyContinue
   if(-not $proc){
-    Write-Warn "Process with PID $pid is not running"
+    Write-Warn "Process with PID $runningPid is not running"
     Remove-Item -Force $PidFile -ErrorAction SilentlyContinue
     return $false
   }
-  Write-Info "Stopping process $pid ..."
-  try { Stop-Process -Id $pid -ErrorAction SilentlyContinue } catch {}
+  Write-Info "Stopping process $runningPid ..."
+  try { Stop-Process -Id $runningPid -ErrorAction SilentlyContinue } catch {}
   # Wait up to 10 seconds
   $timeout = 10
   for($i=0; $i -lt $timeout; $i++){
     Start-Sleep -Seconds 1
-    if(-not (Get-Process -Id $pid -ErrorAction SilentlyContinue)){ break }
+    if(-not (Get-Process -Id $runningPid -ErrorAction SilentlyContinue)){ break }
   }
-  if(Get-Process -Id $pid -ErrorAction SilentlyContinue){
+  if(Get-Process -Id $runningPid -ErrorAction SilentlyContinue){
     Write-Warn 'Process did not stop gracefully, forcing termination...'
-    try { Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue } catch {}
+    try { Stop-Process -Id $runningPid -Force -ErrorAction SilentlyContinue } catch {}
     Start-Sleep -Seconds 2
   }
-  if(-not (Get-Process -Id $pid -ErrorAction SilentlyContinue)){
-    Write-Success "AxonHub stopped successfully (PID: $pid)"
+  if(-not (Get-Process -Id $runningPid -ErrorAction SilentlyContinue)){
+    Write-Success "AxonHub stopped successfully (PID: $runningPid)"
     Remove-Item -Force $PidFile -ErrorAction SilentlyContinue
     return $true
   } else {
