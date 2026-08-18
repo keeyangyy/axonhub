@@ -43,19 +43,6 @@
         Check out Atlas Cloud's <a href="https://lj.s.gy/jknt2V" target="_blank">new coding plan promotion</a> for more budget-friendly API access.
       </p>
     </td>
-    <td width="50%" align="center" valign="top">
-      <a href="https://lj.s.gy/jKk8uU" target="_blank">
-        <img src="https://raw.githubusercontent.com/Krill-ai-org/krill-ai-static/refs/heads/main/krill-logo/Eng/250x150.png" alt="Krill AI" height="50"/>
-        <br/>
-        <strong>Krill AI</strong>
-      </a>
-      <p align="left">
-        Thank you to Krill AI for sponsoring this project. Krill provides official, stable, high-speed API relay services for GPT, Claude, Gemini, and a wide range of Chinese models, with enterprise customization, invoicing support, and dedicated technical support 16 hours a day, 7 days a week. Its optimized WebSocket connection can deliver a faster time to first token.
-      </p>
-      <p align="left">
-        Register through <a href="https://lj.s.gy/jKk8uU" target="_blank">this link</a> and enter the <code>AxonHub</code> coupon code when topping up to receive 23% off your first Codex plan purchase.
-      </p>
-    </td>
   </tr>
 </table>
 
@@ -411,15 +398,19 @@ For detailed configuration instructions, please refer to [configuration document
 git clone https://github.com/looplj/axonhub.git
 cd axonhub
 
-# Set environment variables
-export AXONHUB_DB_DIALECT="tidb"
-export AXONHUB_DB_DSN="<USER>.root:<PASSWORD>@tcp(gateway01.us-west-2.prod.aws.tidbcloud.com:4000)/axonhub?tls=true&parseTime=true&multiStatements=true&charset=utf8mb4"
+# Create a local environment file (replace image digests and password)
+umask 077
+cat > .env <<'EOF'
+DB_PASSWORD=replace-with-a-long-random-password
+AXONHUB_IMAGE=looplj/axonhub@sha256:replace-with-axonhub-digest
+POSTGRES_IMAGE=postgres@sha256:replace-with-postgres-digest
+EOF
 
 # Start services
-docker-compose up -d
+docker compose --env-file .env up -d
 
 # Check status
-docker-compose ps
+docker compose ps
 ```
 
 #### Helm Kubernetes Deployment

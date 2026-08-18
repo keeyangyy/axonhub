@@ -43,19 +43,6 @@
         查看 Atlas Cloud 的 <a href="https://lj.s.gy/jknt2V" target="_blank">全新 Coding plan 促销</a>，获取更经济实惠的 API 访问方案。
       </p>
     </td>
-    <td width="50%" align="center" valign="top">
-      <a href="https://lj.s.gy/jKk8uU" target="_blank">
-        <img src="https://raw.githubusercontent.com/Krill-ai-org/krill-ai-static/refs/heads/main/krill-logo/Eng/250x150.png" alt="Krill AI" height="50"/>
-        <br/>
-        <strong>Krill AI</strong>
-      </a>
-      <p align="left">
-        感谢 Krill AI 赞助本项目。Krill 提供 GPT、Claude、Gemini 及多款国产模型的官方稳定极速 API 中转服务，支持企业级定制、报销开票和 7x16 小时专属技术支持。其独家适配的 WebSocket 连接方式可带来更快的首字速度。
-      </p>
-      <p align="left">
-        使用 <a href="https://lj.s.gy/jKk8uU" target="_blank">此链接</a> 注册，并在充值时填写 <code>AxonHub</code> 优惠码，首次购买 Codex 套餐可享 77 折优惠。
-      </p>
-    </td>
   </tr>
 </table>
 
@@ -399,15 +386,19 @@ AXONHUB_LOG_LEVEL=info
 git clone https://github.com/looplj/axonhub.git
 cd axonhub
 
-# 设置环境变量
-export AXONHUB_DB_DIALECT="tidb"
-export AXONHUB_DB_DSN="<USER>.root:<PASSWORD>@tcp(gateway01.us-west-2.prod.aws.tidbcloud.com:4000)/axonhub?tls=true&parseTime=true&multiStatements=true&charset=utf8mb4"
+# 创建本地环境文件（请替换镜像 digest 和密码）
+umask 077
+cat > .env <<'EOF'
+DB_PASSWORD=replace-with-a-long-random-password
+AXONHUB_IMAGE=looplj/axonhub@sha256:replace-with-axonhub-digest
+POSTGRES_IMAGE=postgres@sha256:replace-with-postgres-digest
+EOF
 
 # 启动服务
-docker-compose up -d
+docker compose --env-file .env up -d
 
 # 查看状态
-docker-compose ps
+docker compose ps
 ```
 
 #### Helm Kubernetes 部署 | Helm Kubernetes Deployment
