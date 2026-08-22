@@ -23,7 +23,7 @@ function Write-Warn([string]$m){ Write-Host "[WARNING] $m" -ForegroundColor Yell
 function Write-Err([string]$m){ Write-Host "[ERROR] $m" -ForegroundColor Red }
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$Repo = 'looplj/axonhub'
+$Repo = 'keeyangyy/axonhub'
 $Api = "https://api.github.com/repos/$Repo"
 
 $IncludeBeta = $false
