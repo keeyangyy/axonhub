@@ -1,4 +1,4 @@
-version: 2
+﻿version: 2
 
 project_name: axonhub
 
@@ -77,6 +77,10 @@ archives:
         dst: restart.bat
       - src: deploy/upgrade.bat
         dst: upgrade.bat
+      - src: deploy/rollback.ps1
+        dst: rollback.ps1
+      - src: deploy/rollback.bat
+        dst: rollback.bat
 
 checksum:
   name_template: 'checksums.txt'
