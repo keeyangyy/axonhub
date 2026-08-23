@@ -240,18 +240,18 @@ Expand-Archive -Path $ZipPath -DestinationPath $TempDir -Force
 $NewBinary = Get-ChildItem -Path $TempDir -Recurse -Filter 'axonhub.exe' -File | Select-Object -First 1 | ForEach-Object { $_.FullName }
 if(-not $NewBinary){ Write-Err 'axonhub.exe not found in archive'; exit 1 }
 
+Write-Info 'Stopping AxonHub...'
+$stopScript = Join-Path $ScriptDir 'stop.ps1'
+& $stopScript --force
+
 Write-Info 'Installing new binary...'
 Copy-Item -Path $NewBinary -Destination $BinaryPath -Force
 
 Write-Success "AxonHub upgraded to $LatestVersion"
 
-Write-Info 'Restarting AxonHub...'
-$restartScript = Join-Path $ScriptDir 'restart.ps1'
-if(Test-Path $restartScript){
-  & $restartScript
-} else {
-  Write-Warn 'restart.ps1 not found, please restart AxonHub manually'
-}
+Write-Info 'Starting AxonHub...'
+$startScript = Join-Path $ScriptDir 'start.ps1'
+& $startScript
 
 Write-Success 'Upgrade completed!'
 
