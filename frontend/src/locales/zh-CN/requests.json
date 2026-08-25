@@ -26,6 +26,7 @@
   "requests.columns.costLabel": "成本",
   "requests.columns.latency": "耗时",
   "requests.columns.tokensPerSecond": "令牌/秒",
+  "requests.columns.tokensPerSecondTotal": "总计 {{value}}",
   "requests.columns.showTokensPerSecond": "点击显示令牌/秒",
   "requests.columns.showLatency": "点击显示耗时",
   "requests.columns.firstTokenLatency": "首字耗时",

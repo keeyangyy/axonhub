@@ -26,6 +26,7 @@
   "requests.columns.costLabel": "cost",
   "requests.columns.latency": "Latency",
   "requests.columns.tokensPerSecond": "Tokens/s",
+  "requests.columns.tokensPerSecondTotal": "Total {{value}}",
   "requests.columns.showTokensPerSecond": "Click to show tokens/s",
   "requests.columns.showLatency": "Click to show latency",
   "requests.columns.firstTokenLatency": "First Token Latency",
