@@ -8,6 +8,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/looplj/axonhub/llm"
+	"github.com/looplj/axonhub/llm/transformer"
 	"github.com/looplj/axonhub/llm/transformer/shared"
 )
 
@@ -75,14 +76,22 @@ func RequestFromLLMWithResponsesTools(
 
 	req, adapter, err := requestFromLLMWithResponsesToolAdapter(r, reasoningField)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("%w: %w", transformer.ErrInvalidRequest, err)
 	}
 	if adapter == nil {
 		return req, nil, nil
 	}
 
-	metadata := make(map[string]any, len(r.TransformerMetadata)+4)
-	maps.Copy(metadata, r.TransformerMetadata)
+	return req, responsesChatToolMetadata(r.TransformerMetadata, adapter), nil
+}
+
+func responsesChatToolMetadata(existing map[string]any, adapter *responsesChatToolAdapter) map[string]any {
+	if adapter == nil {
+		return maps.Clone(existing)
+	}
+
+	metadata := make(map[string]any, len(existing)+4)
+	maps.Copy(metadata, existing)
 	metadata[responsesChatStrictFinishMetadataKey] = true
 	if mappings := adapter.mappings(); len(mappings) > 0 {
 		metadata[ResponsesChatToolMappingsMetadataKey] = mappings
@@ -93,7 +102,7 @@ func RequestFromLLMWithResponsesTools(
 	if len(adapter.warnings) > 0 {
 		metadata[responsesChatToolWarningsMetadataKey] = append([]string(nil), adapter.warnings...)
 	}
-	return req, metadata, nil
+	return metadata
 }
 
 // requestFromLLMBase converts fields shared by plain and Responses-adapted Chat requests.
@@ -292,13 +301,15 @@ func MessageFromLLMWithConfig(m llm.Message, reasoningField ReasoningField) Mess
 		})
 	}
 
-	// An assistant turn that only requests tool calls has no content to send, and
-	// a message whose parts were all filtered out (e.g. compaction) is left with an
-	// empty part list. Both cases would reach the wire as a missing or null content
-	// field, which the OpenAI spec permits but stricter OpenAI-compatible upstreams
-	// reject because their schema only accepts a string or an array. Normalize to an
-	// empty string, which every implementation accepts and OpenAI treats as no content.
-	if len(msg.ToolCalls) > 0 && msg.Content.Content == nil && len(msg.Content.MultipleContent) == 0 {
+	// Assistant turns can carry no content: turns that only request tool calls,
+	// turns that only carry reasoning (a Responses reasoning item not followed by
+	// text or a call), and messages whose parts were all filtered out (e.g.
+	// compaction) are left with an empty part list. These cases would reach the
+	// wire as a missing or null content field, which the OpenAI spec permits but
+	// stricter OpenAI-compatible upstreams reject because their schema only
+	// accepts a string or an array. Normalize to an empty string, which every
+	// implementation accepts and OpenAI treats as no content.
+	if msg.Role == "assistant" && msg.Content.Content == nil && len(msg.Content.MultipleContent) == 0 {
 		msg.Content = MessageContent{Content: lo.ToPtr("")}
 	}
 

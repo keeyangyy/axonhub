@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/looplj/axonhub/llm"
+	"github.com/looplj/axonhub/llm/transformer"
 	"github.com/looplj/axonhub/llm/transformer/shared"
 )
 
@@ -211,6 +212,10 @@ func TestResponsesChatToolAdapter_DropsEmptyAssistantHistoryMessages(t *testing.
 		chatRequest.Messages[3].Role,
 	})
 	require.Equal(t, "kept reasoning", lo.FromPtr(chatRequest.Messages[1].ReasoningContent))
+	// Reasoning-only assistant messages must still serialize an explicit content
+	// field; stricter OpenAI-compatible upstreams reject a missing content key.
+	require.NotNil(t, chatRequest.Messages[1].Content.Content)
+	require.Equal(t, "", *chatRequest.Messages[1].Content.Content)
 	require.Len(t, chatRequest.Messages[2].ToolCalls, 1)
 	require.Contains(t, adapter.warnings, "empty_assistant_message: dropped 3 history message(s) with no Chat-compatible payload")
 }
@@ -807,6 +812,22 @@ func TestResponsesChatToolAdapter_RejectsNonCanonicalNamespaceFunctionName(t *te
 	chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
 	require.Nil(t, chatRequest)
 	require.ErrorContains(t, err, `invalid_namespace_tool: function "exec" in namespace "functions" must use flattened name "functions__<name>"`)
+}
+
+func TestRequestFromLLMWithResponsesTools_WrapsAdapterErrors(t *testing.T) {
+	request := &llm.Request{
+		APIFormat: llm.APIFormatOpenAIResponse,
+		Tools: []llm.Tool{{
+			Type:     llm.ToolTypeFunction,
+			Function: llm.Function{Name: "exec", Namespace: "functions"},
+		}},
+	}
+
+	chatRequest, metadata, err := RequestFromLLMWithResponsesTools(request, ReasoningFieldNone)
+	require.Nil(t, chatRequest)
+	require.Nil(t, metadata)
+	require.ErrorIs(t, err, transformer.ErrInvalidRequest)
+	require.ErrorContains(t, err, "invalid_namespace_tool")
 }
 
 func TestResponsesChatToolAdapter_RejectsInvalidNamespaceFunctionChatName(t *testing.T) {
