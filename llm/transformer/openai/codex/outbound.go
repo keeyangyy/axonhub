@@ -1,10 +1,13 @@
 package codex
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"mime"
 	"net/http"
 	"strings"
 	"sync"
@@ -30,12 +33,21 @@ const (
 )
 
 // OutboundTransformer implements transformer.Outbound for Codex proxy.
-// It always talks to the Codex Responses upstream (SSE only) and adapts requests accordingly.
+// It normally talks to the Codex Responses upstream over SSE and adapts requests accordingly.
+// The official backend always streams SSE; compatible relays that return a
+// completed JSON response are also supported for non-stream callers.
 //
 //nolint:containedctx // It is used as a transformer.
 type OutboundTransformer struct {
-	tokens    oauth.TokenGetter
-	transport string
+	tokens          oauth.TokenGetter
+	transport       string
+	baseURL         string
+	alphaSearchPath string
+
+	// official reports whether the configured upstream is the official Codex
+	// backend (chatgpt.com). Official endpoints always stream SSE, so they keep
+	// the DoStream path; only compatible relays get the JSON passthrough path.
+	official bool
 
 	// reuse existing Responses outbound for payload building.
 	responsesOutbound *responses.OutboundTransformer
@@ -45,9 +57,10 @@ type OutboundTransformer struct {
 }
 
 var (
-	_ transformer.Outbound               = (*OutboundTransformer)(nil)
-	_ transformer.PassThroughBodyPolicy  = (*OutboundTransformer)(nil)
-	_ pipeline.ChannelCustomizedExecutor = (*OutboundTransformer)(nil)
+	_ transformer.Outbound                  = (*OutboundTransformer)(nil)
+	_ transformer.PassThroughBodyPolicy     = (*OutboundTransformer)(nil)
+	_ transformer.TransportRequestFinalizer = (*OutboundTransformer)(nil)
+	_ pipeline.ChannelCustomizedExecutor    = (*OutboundTransformer)(nil)
 )
 
 var responsesBlockedPassThroughFields = []string{
@@ -57,9 +70,22 @@ var responsesBlockedPassThroughFields = []string{
 }
 
 type Params struct {
-	TokenProvider oauth.TokenGetter
-	BaseURL       string
-	Transport     string
+	TokenProvider   oauth.TokenGetter
+	BaseURL         string
+	Transport       string
+	AlphaSearchPath string
+}
+
+// isOfficialCodexBaseURL reports whether baseURL points at the official Codex
+// backend. Everything else is treated as a compatible relay that may return a
+// completed JSON response instead of SSE.
+func isOfficialCodexBaseURL(baseURL string) bool {
+	return strings.Contains(strings.ToLower(baseURL), "chatgpt.com")
+}
+
+// isOfficialCodex reports whether the transformer targets the official Codex backend.
+func (t *OutboundTransformer) isOfficialCodex() bool {
+	return t != nil && t.official
 }
 
 func NewOutboundTransformer(params Params) (*OutboundTransformer, error) {
@@ -71,6 +97,10 @@ func NewOutboundTransformer(params Params) (*OutboundTransformer, error) {
 	// Compatibility with old codex channel base url.
 	if baseURL == "" || baseURL == "https://api.openai.com/v1" {
 		baseURL = codexBaseURL
+	}
+	alphaSearchPath := params.AlphaSearchPath
+	if alphaSearchPath == "" {
+		alphaSearchPath = "/alpha/search"
 	}
 
 	// The underlying responses outbound requires baseURL/apiKey. We only need its request body logic.
@@ -87,6 +117,9 @@ func NewOutboundTransformer(params Params) (*OutboundTransformer, error) {
 	return &OutboundTransformer{
 		tokens:            params.TokenProvider,
 		transport:         params.Transport,
+		baseURL:           strings.TrimSuffix(baseURL, "##"),
+		alphaSearchPath:   alphaSearchPath,
+		official:          isOfficialCodexBaseURL(baseURL),
 		responsesOutbound: ro,
 	}, nil
 }
@@ -125,6 +158,9 @@ func (t *OutboundTransformer) TransformRequest(ctx context.Context, llmReq *llm.
 	if llmReq == nil {
 		return nil, errors.New("request is nil")
 	}
+	if llmReq.RequestType == llm.RequestTypeAlphaSearch {
+		return t.transformAlphaSearchRequest(ctx, llmReq)
+	}
 
 	rawSessionID := ""
 	rawOriginator := ""
@@ -145,13 +181,12 @@ func (t *OutboundTransformer) TransformRequest(ctx context.Context, llmReq *llm.
 		rawUserAgent = llmReq.RawRequest.Headers.Get("User-Agent")
 		rawTurnMetadata = llmReq.RawRequest.Headers.Get(TurnMetadataHeader)
 
-		// Non-Codex inbound clients omit the Responses Lite signal. Fabricate it
-		// so the Codex upstream sees the same protocol shape as a real Codex
-		// client. This must be set on the raw request before the underlying
-		// Responses outbound runs: it reads this header to emit an explicit
-		// parallel_tool_calls=false body, matching what real Codex sends.
-		if strings.TrimSpace(rawHeaders.Get(ResponsesLiteHeader)) == "" {
-			rawHeaders.Set(ResponsesLiteHeader, "true")
+		// Responses Lite selects a private Codex protocol mode. It is not
+		// identity metadata: never fabricate it for OpenAI-compatible clients.
+		// A client-selected Lite request is retained only for the official Codex
+		// backend; relays are not assumed to implement the same private protocol.
+		if !t.isOfficialCodex() || !strings.EqualFold(strings.TrimSpace(rawHeaders.Get(ResponsesLiteHeader)), "true") {
+			rawHeaders.Del(ResponsesLiteHeader)
 		}
 	}
 
@@ -204,21 +239,6 @@ func (t *OutboundTransformer) TransformRequest(ctx context.Context, llmReq *llm.
 			reqCopy.ReasoningSummary = lo.ToPtr("auto")
 		}
 
-		// Responses Lite (signaled on the raw request above) rejects requests
-		// whose reasoning context is not "all_turns"; clients that never sent a
-		// reasoning block would otherwise fail upstream with HTTP 400. Only fill
-		// in a missing context — never override what the client explicitly sent.
-		if providerExt := reqCopy.ProviderExtensions; providerExt == nil || providerExt.OpenAIResponses == nil ||
-			providerExt.OpenAIResponses.Request == nil || providerExt.OpenAIResponses.Request.ReasoningContext == "" {
-			oaiExt := llm.EnsureOpenAIResponsesProviderExtensions(&reqCopy)
-			if oaiExt != nil {
-				if oaiExt.Request == nil {
-					oaiExt.Request = &llm.OpenAIResponsesRequestExtensions{ReasoningContext: "all_turns"}
-				} else {
-					oaiExt.Request.ReasoningContext = "all_turns"
-				}
-			}
-		}
 	}
 
 	// Codex Responses rejects token limit fields, so strip them out.
@@ -336,6 +356,9 @@ func (t *OutboundTransformer) TransformRequest(ctx context.Context, llmReq *llm.
 }
 
 func (t *OutboundTransformer) TransformResponse(ctx context.Context, httpResp *httpclient.Response) (*llm.Response, error) {
+	if httpResp != nil && httpResp.Request != nil && httpResp.Request.RequestType == llm.RequestTypeAlphaSearch.String() {
+		return t.transformAlphaSearchResponse(ctx, httpResp)
+	}
 	if httpResp != nil && httpResp.Request != nil && httpResp.Request.RequestType == llm.RequestTypeImage.String() {
 		if httpResp.StatusCode >= 400 {
 			return nil, fmt.Errorf("codex image HTTP error %d: %s", httpResp.StatusCode, httpResp.Body)
@@ -372,8 +395,9 @@ func (t *OutboundTransformer) CustomizeExecutor(executor pipeline.Executor) pipe
 	}
 
 	return &codexExecutor{
-		inner:       inner,
-		transformer: t,
+		inner:        inner,
+		httpExecutor: executor,
+		transformer:  t,
 	}
 }
 
@@ -417,16 +441,37 @@ func (t *OutboundTransformer) Stop() {
 }
 
 type codexExecutor struct {
-	inner       pipeline.Executor
-	transformer *OutboundTransformer
+	inner        pipeline.Executor
+	httpExecutor pipeline.Executor
+	transformer  *OutboundTransformer
 }
 
 func (e *codexExecutor) Do(ctx context.Context, request *httpclient.Request) (*httpclient.Response, error) {
-	if request.RequestType == string(llm.RequestTypeCompact) {
-		return e.inner.Do(ctx, request)
+	request = e.requestForTransport(request)
+	// Compact and alpha search are non-streaming endpoints; proxy them
+	// through the real HTTP client instead of the SSE stream path.
+	if request.RequestType == string(llm.RequestTypeCompact) ||
+		request.RequestType == llm.RequestTypeAlphaSearch.String() {
+		return e.httpExecutor.Do(ctx, request)
 	}
 
-	stream, err := e.inner.DoStream(ctx, request)
+	// The official Codex backend always streams SSE, so keep the historical
+	// DoStream path for it. Compatible relays may instead return a completed
+	// Responses JSON document; for those, execute once and dispatch on the
+	// response Content-Type. The request is never reissued, which could
+	// duplicate model execution and billing.
+	if e.transformer != nil && e.transformer.isOfficialCodex() {
+		return e.doStreamAndAggregate(ctx, request)
+	}
+
+	return e.doOnceAndDispatch(ctx, request)
+}
+
+// doStreamAndAggregate preserves the original Codex behavior: consume the
+// upstream SSE stream and aggregate the events into a completed Responses
+// JSON body.
+func (e *codexExecutor) doStreamAndAggregate(ctx context.Context, request *httpclient.Request) (*httpclient.Response, error) {
+	stream, err := e.executor(ctx).DoStream(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -436,7 +481,6 @@ func (e *codexExecutor) Do(ctx context.Context, request *httpclient.Request) (*h
 	}()
 
 	var chunks []*httpclient.StreamEvent
-
 	for stream.Next() {
 		ev := stream.Current()
 		if ev == nil {
@@ -472,6 +516,110 @@ func (e *codexExecutor) Do(ctx context.Context, request *httpclient.Request) (*h
 	}, nil
 }
 
+// doOnceAndDispatch sends a single upstream request and inspects the completed
+// body. Codex normally responds with SSE even for downstream non-stream
+// requests, but compatible relays can return a completed Responses JSON
+// document instead. JSON responses pass through unchanged; everything else is
+// decoded as SSE and aggregated into a completed JSON response.
+func (e *codexExecutor) doOnceAndDispatch(ctx context.Context, request *httpclient.Request) (*httpclient.Response, error) {
+	response, err := e.inner.Do(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	if response == nil {
+		return nil, errors.New("empty response")
+	}
+	if isJSONResponse(response) {
+		return response, nil
+	}
+
+	chunks, err := decodeSSEChunks(ctx, response.Body)
+	if err != nil {
+		return nil, err
+	}
+	if err := responses.TopLevelWebSocketError(chunks); err != nil {
+		return nil, err
+	}
+
+	body, _, err := e.transformer.AggregateStreamChunks(ctx, request, chunks)
+	if err != nil {
+		return nil, err
+	}
+
+	return &httpclient.Response{
+		StatusCode: http.StatusOK,
+		Headers: http.Header{
+			"Content-Type": []string{"application/json"},
+		},
+		Body:    body,
+		Request: request,
+	}, nil
+}
+
+func isJSONResponse(response *httpclient.Response) bool {
+	if response == nil {
+		return false
+	}
+
+	mediaType, _, err := mime.ParseMediaType(response.Headers.Get("Content-Type"))
+	if err != nil {
+		return false
+	}
+
+	mediaType = strings.ToLower(mediaType)
+
+	return mediaType == "application/json" || strings.HasSuffix(mediaType, "+json")
+}
+
+func decodeSSEChunks(ctx context.Context, body []byte) ([]*httpclient.StreamEvent, error) {
+	stream := httpclient.NewDefaultSSEDecoder(ctx, io.NopCloser(bytes.NewReader(body)))
+	defer func() {
+		_ = stream.Close()
+	}()
+
+	chunks := make([]*httpclient.StreamEvent, 0)
+	for stream.Next() {
+		ev := stream.Current()
+		if ev == nil {
+			continue
+		}
+
+		chunks = append(chunks, &httpclient.StreamEvent{
+			Type:        ev.Type,
+			LastEventID: ev.LastEventID,
+			Data:        append([]byte(nil), ev.Data...),
+		})
+	}
+	if err := stream.Err(); err != nil {
+		return nil, err
+	}
+
+	return chunks, nil
+}
+
 func (e *codexExecutor) DoStream(ctx context.Context, request *httpclient.Request) (streams.Stream[*httpclient.StreamEvent], error) {
-	return e.inner.DoStream(ctx, request)
+	return e.executor(ctx).DoStream(ctx, e.requestForTransport(request))
+}
+
+func (e *codexExecutor) executor(_ context.Context) pipeline.Executor {
+	if e == nil {
+		return nil
+	}
+	return e.inner
+}
+
+func (e *codexExecutor) requestForTransport(request *httpclient.Request) *httpclient.Request {
+	if e == nil || e.transformer == nil {
+		return request
+	}
+
+	return e.transformer.FinalizeTransportRequest(request)
+}
+
+func (t *OutboundTransformer) FinalizeTransportRequest(request *httpclient.Request) *httpclient.Request {
+	if t == nil || t.transport == responses.TransportWebSocket {
+		return request
+	}
+
+	return responses.PrepareHTTPTransportRequest(request, true)
 }

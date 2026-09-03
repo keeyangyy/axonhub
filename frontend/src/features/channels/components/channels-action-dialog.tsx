@@ -8,6 +8,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { X, RefreshCw, Search, ChevronLeft, ChevronRight, PanelLeft, Plus, Trash2, Eye, EyeOff, Copy, Play, Info, Ban } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { copyTextToClipboard } from '@/lib/clipboard';
 import { useHorizontalScroll } from '@/hooks/use-horizontal-scroll';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -78,10 +79,10 @@ const MAX_MODELS_DISPLAY = 2;
 
 const duplicateNameRegex = /^(.*) \((\d+)\)$/;
 
-type ApiFormatOption = ApiFormat | 'openai/responses:websocket';
+type ApiFormatOption = ApiFormat;
 type ResponsesTransport = 'http' | 'websocket';
 
-const OPENAI_RESPONSES_WEBSOCKET: ApiFormatOption = 'openai/responses:websocket';
+const OPENAI_RESPONSES_WEBSOCKET: ApiFormatOption = 'openai/responses-ws';
 // A single trailing # suppresses automatic version suffix appending while still
 // allowing the Responses transformer to append /responses. Do not replace these
 // defaults with ## unless the upstream URL should be used fully raw.
@@ -2363,11 +2364,15 @@ export function ChannelsActionDialog({ currentRow, duplicateFromRow, open, onOpe
                                           variant='ghost'
                                           size='sm'
                                           className='h-7 w-7 p-0'
-                                          onClick={() => {
+                                          onClick={async () => {
                                             const keys = field.value || [];
                                             if (keys.length > 0) {
-                                              navigator.clipboard.writeText(keys.join('\n'));
-                                              toast.success(t('channels.messages.credentialsCopied'));
+                                              try {
+                                                await copyTextToClipboard(keys.join('\n'));
+                                                toast.success(t('channels.messages.credentialsCopied'));
+                                              } catch {
+                                                toast.error(t('common.errors.copyFailed'));
+                                              }
                                             }
                                           }}
                                         >

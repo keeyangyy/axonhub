@@ -87,7 +87,7 @@ func (t *OutboundTransformer) TransformRequest(
 	}
 
 	oaiReq, transformerMetadata, err := openai.RequestFromLLMWithResponsesTools(
-		llmReq, openai.ReasoningFieldContent,
+		ctx, llmReq, openai.ReasoningFieldContent,
 	)
 	if err != nil {
 		return nil, err

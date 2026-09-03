@@ -117,7 +117,7 @@ func (t *OutboundTransformer) TransformRequest(
 		return t.Outbound.TransformRequest(ctx, llmReq)
 	}
 
-	oaiReq, err := openai.RequestFromLLM(llmReq, openai.ReasoningFieldReasoning)
+	oaiReq, err := openai.RequestFromLLM(ctx, llmReq, openai.ReasoningFieldReasoning)
 	if err != nil {
 		return nil, err
 	}

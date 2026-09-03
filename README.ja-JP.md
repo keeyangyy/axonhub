@@ -27,21 +27,44 @@
 <table width="100%">
   <tr>
     <td width="50%" align="center" valign="top">
-      <a href="https://lj.s.gy/oZl7Vd" target="_blank">
-        <picture>
-          <source media="(prefers-color-scheme: dark)" srcset="docs/sponsors/atlas-cloud-logomark-white.svg"/>
-          <source media="(prefers-color-scheme: light)" srcset="docs/sponsors/atlas-cloud-logomark-black.svg"/>
-          <img src="docs/sponsors/atlas-cloud-logomark-black.svg" alt="Atlas Cloud" height="50"/>
-        </picture>
+      <a href="https://apikey.fun/register?aff=axonhub" target="_blank">
+        <img src="docs/sponsors/apikey-fun.png" alt="APIKEY.FUN" height="50"/>
         <br/>
-        <strong>Atlas Cloud</strong>
+        <strong>APIKEY.FUN</strong>
       </a>
-      <p align="left">
-        <a href="https://lj.s.gy/oZl7Vd" target="_blank">Atlas Cloud</a> は、開発者に動画生成、画像生成、LLM API へアクセスできる単一の AI API を提供するフルモーダル AI 推論プラットフォームです。複数のベンダー統合を管理する代わりに、一度接続するだけで全モーダルにわたる 300 以上の厳選されたモデルへ統一アクセスできます。
-      </p>
-      <p align="left">
-        Atlas Cloud の <a href="https://lj.s.gy/jknt2V" target="_blank">新しいコーディングプラン特典</a> で、よりお得な API アクセスをご利用ください。
-      </p>
+      <div align="center">
+        <a href="https://apikey.fun/register?aff=axonhub" target="_blank">
+          <img src="docs/sponsors/api-key.fun.banner.png" alt="APIKEY.FUN banner" width="100%"/>
+        </a>
+      </div>
+      <div align="left">
+        APIKEY.FUN は、企業や個人開発者に安定・高効率・低コストな AI モデル API 接続を提供する、専門的なエンタープライズ向け AI API 中継サービスです。<br/>
+        Claude、OpenAI、Gemini などの人気モデルに対応し、料金は公式価格の 7% からご利用いただけます。<br/>
+        AxonHub ユーザーが<a href="https://apikey.fun/register?aff=axonhub" target="_blank">専用リンクから登録</a>すると、チャージ料金が永久に最大 5% 割引になります。
+      </div>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <a href="https://lj.s.gy/DUq59H" target="_blank">
+        <img src="https://www.infistar.cc/logo.png" alt="無限星河 Infistar.cc" height="50"/>
+        <br/>
+        <strong>無限星河 Infistar.cc</strong>
+      </a>
+      <div align="center">
+        <a href="https://lj.s.gy/DUq59H" target="_blank">
+          <img src="docs/sponsors/infistar-banner.png" alt="Infistar.cc 無限星河" width="100%"/>
+        </a>
+      </div>
+      <div align="left">
+        <strong>AxonHub × Infistar.cc 無限星河｜高可用 AI API</strong>
+      </div>
+      <div align="left">
+        ⚡ 安定ルーティング｜公式 1 割 · 透明料金 · フェイルオーバー<br/>
+        🧠 主要モデル｜ChatGPT · Claude · Gemini · Kimi · GLM · DeepSeek<br/>
+        🎨 マルチモーダル｜テキスト · 画像 · 動画 · Embedding / Rerank
+      </div>
+      <div align="left">
+        AxonHub ユーザーは<a href="https://lj.s.gy/DUq59H" target="_blank">専用リンク</a>から特典を利用できます。
+      </div>
     </td>
   </tr>
 </table>
@@ -100,14 +123,6 @@
 </table>
 
 ---
-
-## 💖 サポート
-
-| プロバイダー | プラン | 説明 | リンク |
-|-------------|--------|------|--------|
-| Zhipu AI | GLM CODING PLAN | GLM Coding Plan にご招待いただけます！Claude Code、Clineなど10以上のトップコーディングツールを完全サポート — 月$3から。今すぐサブスクリプションで期間限定特典をゲット！ | [English](https://z.ai/subscribe?ic=OKAF5UFZOM) / [中文](https://www.bigmodel.cn/glm-coding?ic=WIDLV0OOTJ) |
-| Volcengine | CODING PLAN | Ark Coding Plan はDoubao、GLM、DeepSeek、Kimiなどのモデルをサポート。無制限のツールと互換性あり。今すぐサブスクリプションで追加10%オフ — 月$1.2から。購入が多いほどお得に！ | [リンク](https://volcengine.com/L/1Q-HZr5Uvk8/) / コード：LXKDZK3W |
-| Cursor | PRO PLAN | 初月のCursor Pro、Pro+、Ultraを50%オフでお申し込み。 | [招待リンク](https://cursor.com/referral?code=GV0YKBQ692X1) |
 
 ---
 

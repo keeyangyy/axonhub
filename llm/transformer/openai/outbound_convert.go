@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"context"
 	"fmt"
 	"maps"
 	"strings"
@@ -12,8 +13,10 @@ import (
 	"github.com/looplj/axonhub/llm/transformer/shared"
 )
 
-// RequestFromLLM creates OpenAI Request from unified llm.Request with reasoning field configuration.
-func RequestFromLLM(r *llm.Request, reasoningField ReasoningField) (*Request, error) {
+// RequestFromLLM creates OpenAI Request from unified llm.Request with reasoning
+// field configuration. When the request has no explicit prompt cache key, ctx's
+// session ID is used as a fallback when available.
+func RequestFromLLM(ctx context.Context, r *llm.Request, reasoningField ReasoningField) (*Request, error) {
 	if r == nil {
 		return nil, nil
 	}
@@ -28,7 +31,7 @@ func RequestFromLLM(r *llm.Request, reasoningField ReasoningField) (*Request, er
 			return nil, fmt.Errorf("failed to downgrade Responses tool lifecycle: %w", err)
 		}
 	}
-	req := requestFromLLMBase(r)
+	req := requestFromLLMBase(ctx, r)
 	req.Messages = lo.Map(r.Messages, func(m llm.Message, _ int) Message {
 		message := MessageFromLLMWithConfig(m, reasoningField)
 		// Tool call indexes identify positions within one assistant request
@@ -63,6 +66,7 @@ func RequestFromLLM(r *llm.Request, reasoningField ReasoningField) (*Request, er
 // needed to restore Responses-only tool calls. Provider-specific Chat codecs use
 // this path when they advertise Responses chat-tool lifecycle support.
 func RequestFromLLMWithResponsesTools(
+	ctx context.Context,
 	r *llm.Request,
 	reasoningField ReasoningField,
 ) (*Request, map[string]any, error) {
@@ -70,11 +74,11 @@ func RequestFromLLMWithResponsesTools(
 		return nil, nil, nil
 	}
 	if !isResponsesAPIFormat(r.APIFormat) {
-		req, err := RequestFromLLM(r, reasoningField)
+		req, err := RequestFromLLM(ctx, r, reasoningField)
 		return req, nil, err
 	}
 
-	req, adapter, err := requestFromLLMWithResponsesToolAdapter(r, reasoningField)
+	req, adapter, err := requestFromLLMWithResponsesToolAdapter(ctx, r, reasoningField)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w: %w", transformer.ErrInvalidRequest, err)
 	}
@@ -106,7 +110,7 @@ func responsesChatToolMetadata(existing map[string]any, adapter *responsesChatTo
 }
 
 // requestFromLLMBase converts fields shared by plain and Responses-adapted Chat requests.
-func requestFromLLMBase(r *llm.Request) *Request {
+func requestFromLLMBase(ctx context.Context, r *llm.Request) *Request {
 	req := &Request{
 		Model:               r.Model,
 		FrequencyPenalty:    r.FrequencyPenalty,
@@ -131,6 +135,12 @@ func requestFromLLMBase(r *llm.Request) *Request {
 		ParallelToolCalls:   r.ParallelToolCalls,
 		Verbosity:           r.Verbosity,
 	}
+
+	if ctx != nil && lo.FromPtr(req.PromptCacheKey) == "" {
+		if sessionID, ok := shared.GetSessionID(ctx); ok && sessionID != "" {
+			req.PromptCacheKey = lo.ToPtr(sessionID)
+		}
+	}
 	if r.Stop != nil {
 		req.Stop = &Stop{Stop: r.Stop.Stop, MultipleStop: r.Stop.MultipleStop}
 	}
@@ -146,14 +156,14 @@ func requestFromLLMBase(r *llm.Request) *Request {
 }
 
 // requestFromLLMWithResponsesToolAdapter converts a request and preserves reversible tool mappings.
-func requestFromLLMWithResponsesToolAdapter(r *llm.Request, reasoningField ReasoningField) (*Request, *responsesChatToolAdapter, error) {
+func requestFromLLMWithResponsesToolAdapter(ctx context.Context, r *llm.Request, reasoningField ReasoningField) (*Request, *responsesChatToolAdapter, error) {
 	if r == nil {
 		return nil, nil, nil
 	}
 	toolAdapter := newResponsesChatToolAdapter(r.Tools)
 	degradedToolChoice := toolAdapter.degradeUnsupportedRawToolSelector(r)
 
-	req := requestFromLLMBase(r)
+	req := requestFromLLMBase(ctx, r)
 
 	// Build the callable catalog before converting history so specialized calls
 	// resolve through the same stable names as the current tool declarations.

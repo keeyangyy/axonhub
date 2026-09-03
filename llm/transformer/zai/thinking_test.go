@@ -1,6 +1,7 @@
 package zai
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -132,7 +133,7 @@ func TestZAIRequestWithoutThinking(t *testing.T) {
 		},
 	}
 
-	oaiReq, err := openai.RequestFromLLM(chatReq, openai.ReasoningFieldContent)
+	oaiReq, err := openai.RequestFromLLM(context.Background(), chatReq, openai.ReasoningFieldContent)
 	require.NoError(t, err)
 	zaiReq := Request{
 		Request: *oaiReq,

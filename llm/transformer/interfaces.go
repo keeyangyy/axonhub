@@ -102,6 +102,12 @@ func ResponsesRequestCapabilitiesOf(t Outbound, req *llm.Request) ResponsesReque
 	return ResponsesRequestCapabilities{}
 }
 
+// TransportRequestFinalizer applies transport-specific cleanup after raw request
+// pass-through and overrides have finished, but before persistence and execution.
+type TransportRequestFinalizer interface {
+	FinalizeTransportRequest(request *httpclient.Request) *httpclient.Request
+}
+
 // VideoTaskOutbound is an optional extension interface for outbound transformers that support
 // video task query/delete operations (async task model).
 type VideoTaskOutbound interface {

@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -80,7 +81,7 @@ func TestRequestFromLLM(t *testing.T) {
 
 func requireRequestFromLLM(t *testing.T, request *llm.Request, reasoningField ReasoningField) *Request {
 	t.Helper()
-	result, err := RequestFromLLM(request, reasoningField)
+	result, err := RequestFromLLM(context.Background(), request, reasoningField)
 	require.NoError(t, err)
 	return result
 }
@@ -156,7 +157,7 @@ func TestResponsesChatToolAdapter_ConvertsHistoryAndRestoresCalls(t *testing.T) 
 		}},
 	}
 
-	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.NoError(t, err)
 	require.Len(t, chatRequest.Messages[0].ToolCalls, 3)
 	require.Equal(t, llm.ToolTypeFunction, chatRequest.Messages[0].ToolCalls[0].Type)
@@ -202,7 +203,7 @@ func TestResponsesChatToolAdapter_DropsEmptyAssistantHistoryMessages(t *testing.
 		{Role: "user", Content: llm.MessageContent{Content: lo.ToPtr("after")}},
 	}}
 
-	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldContent)
+	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldContent)
 	require.NoError(t, err)
 	require.Len(t, chatRequest.Messages, 4)
 	require.Equal(t, []string{"user", "assistant", "assistant", "user"}, []string{
@@ -269,7 +270,7 @@ func TestResponsesChatToolAdapter_RevalidatesEveryAssistantPayloadForm(t *testin
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request, adapter, err := requestFromLLMWithResponsesToolAdapter(&llm.Request{Messages: []llm.Message{tt.message}}, ReasoningFieldAll)
+			request, adapter, err := requestFromLLMWithResponsesToolAdapter(context.Background(), &llm.Request{Messages: []llm.Message{tt.message}}, ReasoningFieldAll)
 			require.NoError(t, err)
 			if !tt.wantKept {
 				require.Empty(t, request.Messages)
@@ -290,7 +291,7 @@ func TestResponsesChatToolAdapter_RejectsDeferredFunction(t *testing.T) {
 		},
 	}}}
 
-	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.Nil(t, chatRequest)
 	require.ErrorContains(t, err, `unsupported_function_feature: function tool "deferred_lookup" uses defer_loading, which Chat Completions cannot represent`)
 	require.NotContains(t, strings.Join(adapter.warnings, "\n"), "defer_loading_degraded")
@@ -325,7 +326,7 @@ func TestResponsesChatToolAdapter_RejectsDeferredFunctionForEveryOrigin(t *testi
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(&llm.Request{
+			chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), &llm.Request{
 				Tools: []llm.Tool{tt.tool},
 			}, ReasoningFieldNone)
 			require.Nil(t, chatRequest)
@@ -706,7 +707,7 @@ func TestResponsesChatToolAdapter_AvoidsFunctionNameCollisions(t *testing.T) {
 		{Type: llm.ToolTypeFunction, Function: llm.Function{Name: "collaboration__spawn_agent"}},
 		{Type: llm.ToolTypeFunction, Function: llm.Function{Name: "collaboration__spawn_agent", Namespace: "collaboration"}},
 	}}
-	_, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	_, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.ErrorContains(t, err, `tool_name_conflict: Chat name "collaboration__spawn_agent" is required by function collaboration__spawn_agent and namespace collaboration.spawn_agent`)
 }
 
@@ -732,7 +733,7 @@ func TestResponsesChatToolAdapter_RejectsCustomNameCollision(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, err := requestFromLLMWithResponsesToolAdapter(tt.request, ReasoningFieldNone)
+			_, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), tt.request, ReasoningFieldNone)
 			require.ErrorContains(t, err, `tool_name_conflict: Chat name "apply_patch" is required by function apply_patch and custom apply_patch`)
 		})
 	}
@@ -767,7 +768,7 @@ func TestResponsesChatToolAdapter_RejectsStrictCrossKindNameCollisions(t *testin
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, err := requestFromLLMWithResponsesToolAdapter(tt.request, ReasoningFieldNone)
+			_, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), tt.request, ReasoningFieldNone)
 			require.ErrorContains(t, err, "tool_name_conflict")
 		})
 	}
@@ -778,7 +779,7 @@ func TestResponsesChatToolAdapter_RejectsConflictingCustomDefinition(t *testing.
 		{Type: llm.ToolTypeResponsesCustomTool, ResponseCustomTool: &llm.ResponseCustomTool{Name: "exec", Namespace: "functions", Description: "first"}},
 		{Type: llm.ToolTypeResponsesCustomTool, ResponseCustomTool: &llm.ResponseCustomTool{Name: "exec", Namespace: "functions", Description: "second"}},
 	}}
-	_, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	_, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.ErrorContains(t, err, "tool_definition_conflict: custom functions.exec has multiple different definitions")
 }
 
@@ -797,7 +798,7 @@ func TestResponsesChatToolAdapter_RejectsConflictingNamespaceFunctionDefinition(
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, err := requestFromLLMWithResponsesToolAdapter(&llm.Request{Tools: tt.tools}, ReasoningFieldNone)
+			_, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), &llm.Request{Tools: tt.tools}, ReasoningFieldNone)
 			require.ErrorContains(t, err, "tool_definition_conflict: namespace functions.lookup has multiple different definitions")
 		})
 	}
@@ -809,7 +810,7 @@ func TestResponsesChatToolAdapter_RejectsNonCanonicalNamespaceFunctionName(t *te
 		Function: llm.Function{Name: "exec", Namespace: "functions", Parameters: []byte(`{"type":"object"}`)},
 	}}}
 
-	chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.Nil(t, chatRequest)
 	require.ErrorContains(t, err, `invalid_namespace_tool: function "exec" in namespace "functions" must use flattened name "functions__<name>"`)
 }
@@ -823,7 +824,7 @@ func TestRequestFromLLMWithResponsesTools_WrapsAdapterErrors(t *testing.T) {
 		}},
 	}
 
-	chatRequest, metadata, err := RequestFromLLMWithResponsesTools(request, ReasoningFieldNone)
+	chatRequest, metadata, err := RequestFromLLMWithResponsesTools(context.Background(), request, ReasoningFieldNone)
 	require.Nil(t, chatRequest)
 	require.Nil(t, metadata)
 	require.ErrorIs(t, err, transformer.ErrInvalidRequest)
@@ -847,7 +848,7 @@ func TestResponsesChatToolAdapter_RejectsInvalidNamespaceFunctionChatName(t *tes
 					Parameters: []byte(`{"type":"object"}`),
 				},
 			}}}
-			chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+			chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 			require.Nil(t, chatRequest)
 			require.ErrorContains(t, err, "invalid_tool_name: Chat function name")
 		})
@@ -874,7 +875,7 @@ func TestResponsesChatToolAdapter_RejectsInvalidExactCustomChatName(t *testing.T
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, err := requestFromLLMWithResponsesToolAdapter(&llm.Request{Tools: []llm.Tool{tt.tool}}, ReasoningFieldNone)
+			_, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), &llm.Request{Tools: []llm.Tool{tt.tool}}, ReasoningFieldNone)
 			require.ErrorContains(t, err, "invalid_tool_name")
 		})
 	}
@@ -885,7 +886,7 @@ func TestResponsesChatToolAdapter_DeduplicatesEquivalentFunctions(t *testing.T) 
 		{Type: llm.ToolTypeFunction, Function: llm.Function{Name: "lookup", Description: "Lookup", Parameters: []byte(`{"type":"object","properties":{"query":{"type":"string"}}}`)}},
 		{Type: llm.ToolTypeFunction, Function: llm.Function{Name: "lookup", Description: "Lookup", Parameters: []byte(`{"properties":{"query":{"type":"string"}},"type":"object"}`)}, ResponsesOrigin: "additional_tools"},
 	}}
-	chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.NoError(t, err)
 	require.Len(t, chatRequest.Tools, 1)
 	require.Equal(t, "lookup", chatRequest.Tools[0].Function.Name)
@@ -896,7 +897,7 @@ func TestResponsesChatToolAdapter_RejectsConflictingFunctionSchema(t *testing.T)
 		{Type: llm.ToolTypeFunction, Function: llm.Function{Name: "lookup", Parameters: []byte(`{"type":"object","properties":{"query":{"type":"string"}}}`)}},
 		{Type: llm.ToolTypeFunction, Function: llm.Function{Name: "lookup", Parameters: []byte(`{"type":"object","properties":{"id":{"type":"integer"}}}`)}, ResponsesOrigin: "additional_tools"},
 	}}
-	_, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	_, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.ErrorContains(t, err, `tool_definition_conflict: function lookup has multiple different definitions`)
 }
 
@@ -905,7 +906,7 @@ func TestResponsesChatToolAdapter_DropsInvalidFunctionSchemaWithWarning(t *testi
 		{Type: llm.ToolTypeFunction, Function: llm.Function{Name: "valid", Parameters: []byte(`{"type":"object"}`)}},
 		{Type: llm.ToolTypeFunction, Function: llm.Function{Name: "invalid", Parameters: []byte(`{"type":`)}},
 	}}
-	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.NoError(t, err)
 	require.Len(t, chatRequest.Tools, 1)
 	require.Equal(t, "valid", chatRequest.Tools[0].Function.Name)
@@ -928,7 +929,7 @@ func TestResponsesChatToolAdapter_NormalizesFunctionParameterRoots(t *testing.T)
 		}},
 	}}
 
-	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.NoError(t, err)
 	require.Len(t, chatRequest.Tools, 3)
 	for _, tool := range chatRequest.Tools {
@@ -955,7 +956,7 @@ func TestResponsesChatToolAdapter_RejectsNamedInvalidToolSearchSchema(t *testing
 		}},
 	}
 
-	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.Nil(t, chatRequest)
 	require.ErrorContains(t, err, `named tool "tool_search" is unavailable`)
 	require.Contains(t, adapter.warnings, `invalid tool_search definition was dropped: parameters schema type is required and must be "object"`)
@@ -971,7 +972,7 @@ func TestResponsesChatToolAdapter_RejectsUnsupportedNamedToolChoice(t *testing.T
 			Type: "tool_search", Function: llm.ToolFunction{Name: "tool_search"},
 		}},
 	}
-	_, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	_, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.ErrorContains(t, err, "unsupported_tool_choice")
 }
 
@@ -1025,7 +1026,7 @@ func TestResponsesChatToolAdapter_DoesNotRedirectDroppedNamedToolToPlainFunction
 			Type: "future_server_tool", Function: llm.ToolFunction{Name: "lookup"},
 		}},
 	}
-	_, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	_, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.ErrorContains(t, err, "unsupported_tool_choice")
 }
 
@@ -1039,7 +1040,7 @@ func TestResponsesChatToolAdapter_DoesNotRedirectInvalidNamedFunctionToCustom(t 
 			Type: llm.ToolTypeFunction, Function: llm.ToolFunction{Name: "lookup"},
 		}},
 	}
-	_, adapter, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	_, adapter, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.ErrorContains(t, err, `named tool "lookup" is unavailable`)
 	require.Contains(t, adapter.warnings, `invalid function tool "lookup" was dropped: parameters schema type is required and must be "object"`)
 }
@@ -1068,7 +1069,7 @@ func TestResponsesChatToolAdapter_FiltersTypeAwareAllowedTools(t *testing.T) {
 		},
 	}
 
-	chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.NoError(t, err)
 	require.Equal(t, "auto", lo.FromPtr(chatRequest.ToolChoice.ToolChoice))
 	require.Equal(t, []string{
@@ -1088,7 +1089,7 @@ func TestResponsesChatToolAdapter_NamespaceSelectorIncludesCustom(t *testing.T) 
 			AllowedTools: []llm.ToolOption{{Type: "namespace", Name: "functions"}},
 		},
 	}
-	chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.NoError(t, err)
 	require.Equal(t, []string{"functions__exec", "functions__wait"}, lo.Map(
 		chatRequest.Tools, func(tool Tool, _ int) string { return tool.Function.Name },
@@ -1107,7 +1108,7 @@ func TestResponsesChatToolAdapter_NamespaceSelectorDoesNotAbsorbClientSourceType
 			AllowedTools: []llm.ToolOption{{Type: "namespace", Name: "functions"}},
 		},
 	}
-	chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.NoError(t, err)
 	require.Equal(t, []string{"functions__exec"}, lo.Map(
 		chatRequest.Tools, func(tool Tool, _ int) string { return tool.Function.Name },
@@ -1121,14 +1122,14 @@ func TestResponsesChatToolAdapter_NamespaceCustomNamedChoice(t *testing.T) {
 	request.ToolChoice = &llm.ToolChoice{NamedToolChoice: &llm.NamedToolChoice{
 		Type: "custom", Function: llm.ToolFunction{Name: "functions__exec"},
 	}}
-	chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.NoError(t, err)
 	require.Equal(t, "functions__exec", chatRequest.ToolChoice.NamedToolChoice.Function.Name)
 
 	request.ToolChoice = &llm.ToolChoice{NamedToolChoice: &llm.NamedToolChoice{
 		Type: "namespace", Function: llm.ToolFunction{Name: "functions"},
 	}}
-	chatRequest, _, err = requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	chatRequest, _, err = requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.NoError(t, err)
 	require.Equal(t, "functions__exec", chatRequest.ToolChoice.NamedToolChoice.Function.Name)
 }
@@ -1146,7 +1147,7 @@ func TestResponsesChatToolAdapter_NamedNamespaceChoiceIgnoresHistoryOnlyMember(t
 			Type: "namespace", Function: llm.ToolFunction{Name: "functions"},
 		}},
 	}
-	chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.NoError(t, err)
 	require.Equal(t, "functions__exec", chatRequest.ToolChoice.NamedToolChoice.Function.Name)
 	require.Equal(t, "functions__old", chatRequest.Messages[0].ToolCalls[0].Function.Name)
@@ -1159,7 +1160,7 @@ func TestResponsesChatToolAdapter_RejectsMultiMemberNamedNamespaceChoice(t *test
 	}, ToolChoice: &llm.ToolChoice{NamedToolChoice: &llm.NamedToolChoice{
 		Type: "namespace", Function: llm.ToolFunction{Name: "functions"},
 	}}}
-	_, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	_, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.ErrorContains(t, err, `namespace "functions" has multiple callable tools`)
 }
 
@@ -1180,7 +1181,7 @@ func TestResponsesChatToolAdapter_AllowedToolsDoesNotBreakHistoryMappings(t *tes
 		},
 	}
 
-	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.NoError(t, err)
 	require.Len(t, chatRequest.Tools, 1)
 	require.Equal(t, "lookup", chatRequest.Tools[0].Function.Name)
@@ -1198,7 +1199,7 @@ func TestResponsesChatToolAdapter_EmptyAllowedTools(t *testing.T) {
 				Tools:      []llm.Tool{{Type: llm.ToolTypeFunction, Function: llm.Function{Name: "lookup", Parameters: []byte(`{"type":"object"}`)}}},
 				ToolChoice: &llm.ToolChoice{ToolChoice: &mode, AllowedToolsSet: true, AllowedTools: []llm.ToolOption{}},
 			}
-			chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+			chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 			if mode == "required" {
 				require.ErrorContains(t, err, "required tool choice has no callable tools")
 				return
@@ -1235,7 +1236,7 @@ func TestResponsesChatToolAdapter_OmittedAllowedToolsModeOmitsChatToolChoice(t *
 				},
 			}
 
-			chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+			chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 			require.NoError(t, err)
 			require.Nil(t, chatRequest.ToolChoice)
 			require.Len(t, chatRequest.Tools, tc.wantTools)
@@ -1261,7 +1262,7 @@ func TestResponsesChatToolAdapter_MapsNamedFutureClientTool(t *testing.T) {
 		}},
 	}
 
-	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.NoError(t, err)
 	require.Len(t, chatRequest.Tools, 2)
 	require.Equal(t, "axonhub_client_tool_1", chatRequest.Tools[1].Function.Name)
@@ -1280,13 +1281,13 @@ func TestResponsesChatToolAdapter_RejectsRequiredChoiceWithoutCallableTools(t *t
 		}},
 		ToolChoice: &llm.ToolChoice{ToolChoice: &required},
 	}
-	_, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	_, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.ErrorContains(t, err, "required tool choice has no callable tools")
 
 	request.Tools = append(request.Tools, llm.Tool{
 		Type: llm.ToolTypeFunction, Function: llm.Function{Name: "lookup", Parameters: []byte(`{"type":"object"}`)},
 	})
-	chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.NoError(t, err)
 	require.Equal(t, "required", lo.FromPtr(chatRequest.ToolChoice.ToolChoice))
 }
@@ -1301,7 +1302,7 @@ func TestResponsesChatToolAdapter_MapsNamedCustomToolChoiceAfterCollision(t *tes
 			Type: "custom", Function: llm.ToolFunction{Name: "apply_patch"},
 		}},
 	}
-	_, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	_, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.ErrorContains(t, err, `tool_name_conflict: Chat name "apply_patch" is required by function apply_patch and custom apply_patch`)
 }
 
@@ -1319,7 +1320,7 @@ func TestResponsesChatToolAdapter_MapsFunctionChoiceToNamespaceTool(t *testing.T
 		}},
 	}
 
-	chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.NoError(t, err)
 	require.NotNil(t, chatRequest.ToolChoice)
 	require.Equal(t, "collaboration__spawn_agent", chatRequest.ToolChoice.NamedToolChoice.Function.Name)
@@ -1342,7 +1343,7 @@ func TestResponsesChatToolAdapter_RejectsAmbiguousPlainAndNamespaceFunctionChoic
 		}},
 	}
 
-	_, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	_, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.ErrorContains(t, err, `tool_name_conflict: Chat name "collaboration__spawn_agent" is required by function collaboration__spawn_agent and namespace collaboration.spawn_agent`)
 }
 
@@ -1355,7 +1356,7 @@ func TestResponsesChatToolAdapter_SilentlyFiltersEstablishedNonChatTools(t *test
 		{Type: llm.ToolTypeGoogleUrlContext},
 	}}
 
-	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.NoError(t, err)
 	require.Empty(t, chatRequest.Tools)
 	require.Empty(t, adapter.warnings)
@@ -1372,12 +1373,12 @@ func TestResponsesChatToolAdapter_ValidatesSpecialCallIDs(t *testing.T) {
 			ResponseCustomToolCall: &llm.ResponseCustomToolCall{CallID: "call_inner", Name: "apply_patch", Input: "patch"},
 		}},
 	}}}
-	chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	chatRequest, _, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.NoError(t, err)
 	require.Equal(t, "call_inner", chatRequest.Messages[0].ToolCalls[0].ID)
 
 	request.Messages[0].ToolCalls[0].ID = "call_outer"
-	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.NoError(t, err)
 	require.Equal(t, "call_inner", chatRequest.Messages[0].ToolCalls[0].ID)
 	require.Contains(t, adapter.warnings, `tool_call_id_conflict: used specialized call ID "call_inner" instead of outer call ID "call_outer"`)
@@ -1391,7 +1392,7 @@ func TestResponsesChatToolAdapter_PreservesUndeclaredSpecialHistory(t *testing.T
 			{ResponseToolSearchCall: &llm.ResponseToolSearchCall{CallID: "call_search", Execution: "client", Arguments: `{}`}},
 		},
 	}}}
-	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(request, ReasoningFieldNone)
+	chatRequest, adapter, err := requestFromLLMWithResponsesToolAdapter(context.Background(), request, ReasoningFieldNone)
 	require.NoError(t, err)
 	require.Empty(t, chatRequest.Tools)
 	require.Len(t, chatRequest.Messages[0].ToolCalls, 2)
