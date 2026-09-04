@@ -460,14 +460,17 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
         }
 
         const hitRate = promptTokens > 0 ? (cachedTokens / promptTokens) * 100 : 0;
-        const isLowHitRate = hitRate < 80 && promptTokens >= 40000;
         const isHighHitRate = hitRate >= 95;
+        const isMediumHitRate = hitRate >= 90;
+        const isLowHitRate = hitRate < 80 && promptTokens >= 40000;
 
-        const hitRateColor = isLowHitRate
-          ? 'font-medium text-red-600 dark:text-red-400'
-          : isHighHitRate
-            ? 'font-medium text-green-600 dark:text-green-400'
-            : 'text-muted-foreground';
+        const hitRateColor = isHighHitRate
+          ? 'font-medium text-green-600 dark:text-green-400'
+          : isMediumHitRate
+            ? 'font-medium text-blue-600 dark:text-blue-400'
+            : isLowHitRate
+              ? 'font-medium text-red-600 dark:text-red-400'
+              : 'text-muted-foreground';
 
         return (
           <div className='text-xs'>
@@ -565,11 +568,13 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
 
         const firstTokenMs = request.metricsFirstTokenLatencyMs ?? 0;
         const firstTokenColor =
-          firstTokenMs <= 5000
+          firstTokenMs <= 3000
             ? 'text-green-600 dark:text-green-400'
-            : firstTokenMs > 15000
-              ? 'text-red-600 dark:text-red-400'
-              : 'text-muted-foreground';
+            : firstTokenMs <= 6000
+              ? 'text-blue-600 dark:text-blue-400'
+              : firstTokenMs > 15000
+                ? 'text-red-600 dark:text-red-400'
+                : 'text-muted-foreground';
 
         return (
           <div className='min-w-[128px] font-mono text-xs'>
@@ -589,9 +594,9 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
       cell: ({ row }) => {
         const tps = getTokensPerSecondValue(row.original) ?? 0;
         const tpsColor =
-          tps > 100
+          tps > 60
             ? 'font-mono text-xs text-green-600 dark:text-green-400'
-            : tps > 50
+            : tps >= 30
               ? 'font-mono text-xs text-blue-600 dark:text-blue-400'
               : tps < 10
                 ? 'font-mono text-xs text-red-600 dark:text-red-400'
