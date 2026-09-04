@@ -22,9 +22,12 @@ const SYSTEM_VERSION_QUERY = `
   }
 `;
 
+export const OFFICIAL_REPO = 'looplj/axonhub';
+export const FORK_REPO = 'keeyangyy/axonhub';
+
 export const CHECK_FOR_UPDATE_QUERY = `
-  query CheckForUpdate($includeBeta: Boolean! = false) {
-    checkForUpdate(includeBeta: $includeBeta) {
+  query CheckForUpdate($includeBeta: Boolean! = false, $repo: String! = "looplj/axonhub") {
+    checkForUpdate(includeBeta: $includeBeta, repo: $repo) {
       currentVersion
       latestVersion
       hasUpdate
@@ -758,11 +761,11 @@ export function useSystemVersion() {
   });
 }
 
-export function useCheckForUpdate(includeBeta = false) {
+export function useCheckForUpdate(includeBeta = false, repo = 'looplj/axonhub') {
   return useQuery({
-    queryKey: ['checkForUpdate', includeBeta],
+    queryKey: ['checkForUpdate', includeBeta, repo],
     queryFn: async () => {
-      const data = await graphqlRequest<{ checkForUpdate: VersionCheck }>(CHECK_FOR_UPDATE_QUERY, { includeBeta });
+      const data = await graphqlRequest<{ checkForUpdate: VersionCheck }>(CHECK_FOR_UPDATE_QUERY, { includeBeta, repo });
       return data.checkForUpdate;
     },
     retry: false,

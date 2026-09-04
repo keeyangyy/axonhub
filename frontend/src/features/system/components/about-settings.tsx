@@ -9,13 +9,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
-import { useSystemVersion, useCheckForUpdate } from '../data/system';
+import { useSystemVersion, useCheckForUpdate, OFFICIAL_REPO, FORK_REPO } from '../data/system';
 
 export function AboutSettings() {
   const { t } = useTranslation();
-  const [includeBeta, setIncludeBeta] = useState(false);
+  const [includeBeta, setIncludeBeta] = useState(true);
   const { data: version, isLoading: versionLoading } = useSystemVersion();
-  const { data: updateCheck, isFetching: isCheckingForUpdate, refetch: checkUpdate } = useCheckForUpdate(includeBeta);
+  const { data: officialCheck, isFetching: isCheckingOfficial, refetch: checkOfficial } = useCheckForUpdate(includeBeta, OFFICIAL_REPO);
+  const { data: forkCheck, isFetching: isCheckingFork, refetch: checkFork } = useCheckForUpdate(includeBeta, FORK_REPO);
+  const isCheckingForUpdate = isCheckingOfficial || isCheckingFork;
 
   if (versionLoading) {
     return (
@@ -95,37 +97,47 @@ export function AboutSettings() {
                   </Label>
                 </div>
               </div>
-              <Button variant='outline' size='sm' onClick={() => checkUpdate()} disabled={isCheckingForUpdate}>
+              <Button variant='outline' size='sm' onClick={() => { checkOfficial(); checkFork(); }} disabled={isCheckingForUpdate}>
                 <RefreshCw className={`mr-2 h-4 w-4 ${isCheckingForUpdate ? 'animate-spin' : ''}`} />
                 {t('system.about.updateCheck.button')}
               </Button>
             </div>
 
-            {updateCheck && !isCheckingForUpdate && (
-              <div className='mt-4 rounded-lg border p-4'>
-                {updateCheck.hasUpdate ? (
-                  <div className='flex items-start gap-3'>
-                    <AlertCircle className='mt-0.5 h-5 w-5 text-amber-500' />
-                    <div className='flex-1 space-y-2'>
-                      <p className='text-sm font-medium'>{t('system.about.updateCheck.newVersionAvailable')}</p>
-                      <p className='text-muted-foreground text-sm'>
-                        {t('system.about.updateCheck.currentVersion')}: {updateCheck.currentVersion} →{' '}
-                        {t('system.about.updateCheck.latestVersion')}: {updateCheck.latestVersion}
-                      </p>
-                      <Button variant='link' size='sm' className='h-auto p-0' asChild>
-                        <a href={updateCheck.releaseUrl} target='_blank' rel='noopener noreferrer'>
-                          {t('system.about.updateCheck.viewRelease')}
-                          <ExternalLink className='ml-1 h-3 w-3' />
-                        </a>
-                      </Button>
+            {!isCheckingForUpdate && (officialCheck || forkCheck) && (
+              <div className='mt-4 space-y-2'>
+                {[
+                  { repo: OFFICIAL_REPO, check: officialCheck },
+                  { repo: FORK_REPO, check: forkCheck },
+                ]
+                  .filter((c) => c.check)
+                  .map(({ repo, check }) => (
+                    <div key={repo} className='rounded-lg border p-4'>
+                      <p className='mb-2 font-mono text-xs text-muted-foreground'>{repo}</p>
+                      {check!.hasUpdate ? (
+                        <div className='flex items-start gap-3'>
+                          <AlertCircle className='mt-0.5 h-5 w-5 text-amber-500' />
+                          <div className='flex-1 space-y-2'>
+                            <p className='text-sm font-medium'>{t('system.about.updateCheck.newVersionAvailable')}</p>
+                            <p className='text-muted-foreground text-sm'>
+                              {t('system.about.updateCheck.currentVersion')}: {check!.currentVersion} →{' '}
+                              {t('system.about.updateCheck.latestVersion')}: {check!.latestVersion}
+                            </p>
+                            <Button variant='link' size='sm' className='h-auto p-0' asChild>
+                              <a href={check!.releaseUrl} target='_blank' rel='noopener noreferrer'>
+                                {t('system.about.updateCheck.viewRelease')}
+                                <ExternalLink className='ml-1 h-3 w-3' />
+                              </a>
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className='flex items-center gap-3'>
+                          <CheckCircle className='h-5 w-5 text-green-500' />
+                          <p className='text-sm'>{t('system.about.updateCheck.upToDate')}</p>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ) : (
-                  <div className='flex items-center gap-3'>
-                    <CheckCircle className='h-5 w-5 text-green-500' />
-                    <p className='text-sm'>{t('system.about.updateCheck.upToDate')}</p>
-                  </div>
-                )}
+                  ))}
               </div>
             )}
           </div>

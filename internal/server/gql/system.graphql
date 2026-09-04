@@ -503,7 +503,7 @@ extend type Query {
   defaultDataStorageID: ID
   onboardingInfo: OnboardingInfo
   systemVersion: SystemVersion!
-  checkForUpdate(includeBeta: Boolean! = false): VersionCheck!
+  checkForUpdate(includeBeta: Boolean! = false, repo: String! = "looplj/axonhub"): VersionCheck!
   systemChannelSettings: SystemChannelSettings!
   systemGeneralSettings: SystemGeneralSettings!
   videoStorageSettings: VideoStorageSettings!

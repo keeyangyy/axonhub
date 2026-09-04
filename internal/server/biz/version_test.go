@@ -159,6 +159,36 @@ func TestIsNewerVersion(t *testing.T) {
 			want:    true,
 		},
 		{
+			name:    "cross beta version with mine suffix",
+			current: "v1.0.0-beta7-mine.6",
+			latest:  "v1.0.0-beta9-mine.1",
+			want:    true,
+		},
+		{
+			name:    "cross beta version without suffix",
+			current: "v1.0.0-beta7-mine.6",
+			latest:  "v1.0.0-beta9",
+			want:    true,
+		},
+		{
+			name:    "generic suffix sequence is newer",
+			current: "v1.0.0-beta9-user.1",
+			latest:  "v1.0.0-beta9-user.2",
+			want:    true,
+		},
+		{
+			name:    "generic suffix with two digits is newer than single digit",
+			current: "v1.0.0-beta9-user.9",
+			latest:  "v1.0.0-beta9-user.10",
+			want:    true,
+		},
+		{
+			name:    "generic suffix cross beta version",
+			current: "v1.0.0-beta7-custom.3",
+			latest:  "v1.0.0-beta9-custom.1",
+			want:    true,
+		},
+		{
 			name:    "build metadata",
 			current: "v1.0.0+build.1",
 			latest:  "v1.0.0+build.2",
