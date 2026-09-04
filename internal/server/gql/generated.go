@@ -25300,7 +25300,7 @@ func (ec *executionContext) _ChannelSettings_apiKeyStrategy(ctx context.Context,
 			return obj.APIKeyStrategy, nil
 		},
 		nil,
-		ec.marshalOString2string,
+		ec.marshalOString2ᚖstring,
 		true,
 		false,
 	)
@@ -25329,7 +25329,7 @@ func (ec *executionContext) _ChannelSettings_apiKeyRoundRobinSwitchAfter(ctx con
 			return obj.APIKeyRoundRobinSwitchAfter, nil
 		},
 		nil,
-		ec.marshalOInt2int,
+		ec.marshalOInt2ᚖint,
 		true,
 		false,
 	)
@@ -68529,14 +68529,14 @@ func (ec *executionContext) unmarshalInputChannelSettingsInput(ctx context.Conte
 			it.ModelProtocols = data
 		case "apiKeyStrategy":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("apiKeyStrategy"))
-			data, err := ec.unmarshalOString2string(ctx, v)
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
 			it.APIKeyStrategy = data
 		case "apiKeyRoundRobinSwitchAfter":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("apiKeyRoundRobinSwitchAfter"))
-			data, err := ec.unmarshalOInt2int(ctx, v)
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
 			if err != nil {
 				return it, err
 			}

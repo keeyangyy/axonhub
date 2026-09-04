@@ -243,15 +243,17 @@ type ChannelSettings struct {
 	ModelProtocols []ModelProtocol `json:"modelProtocols,omitempty"`
 
 	// APIKeyStrategy selects how an API key is chosen when a channel has multiple
-	// enabled keys. Empty defaults to APIKeyStrategySticky (trace affinity + random
-	// fallback), preserving the historical behavior.
-	APIKeyStrategy string `json:"apiKeyStrategy,omitempty"`
+	// enabled keys. Nil defaults to APIKeyStrategySticky (trace affinity + random
+	// fallback), preserving the historical behavior. Pointer so GQL emits null
+	// instead of a zero-value string for channels saved before the field existed.
+	APIKeyStrategy *string `json:"apiKeyStrategy,omitempty"`
 
 	// APIKeyRoundRobinSwitchAfter is the number of consecutive requests a key is
 	// reused before round-robin advances to the next key. Only meaningful when
 	// APIKeyStrategy is APIKeyStrategyRoundRobin. Values below 1 are treated as 1
-	// (switch every request).
-	APIKeyRoundRobinSwitchAfter int `json:"apiKeyRoundRobinSwitchAfter,omitempty"`
+	// (switch every request). Pointer so GQL emits null instead of 0 for legacy
+	// channels.
+	APIKeyRoundRobinSwitchAfter *int `json:"apiKeyRoundRobinSwitchAfter,omitempty"`
 }
 
 // API key selection strategies for channels with multiple enabled keys.
