@@ -135,6 +135,30 @@ func TestIsNewerVersion(t *testing.T) {
 			want:    true,
 		},
 		{
+			name:    "beta with two digits is newer than single digit",
+			current: "v1.0.0-beta9",
+			latest:  "v1.0.0-beta10",
+			want:    true,
+		},
+		{
+			name:    "beta with single digit is not newer than two digits",
+			current: "v1.0.0-beta10",
+			latest:  "v1.0.0-beta9",
+			want:    false,
+		},
+		{
+			name:    "mine suffix sequence is newer",
+			current: "v1.0.0-beta9-mine.1",
+			latest:  "v1.0.0-beta9-mine.2",
+			want:    true,
+		},
+		{
+			name:    "mine suffix with two digits is newer than single digit",
+			current: "v1.0.0-beta9-mine.9",
+			latest:  "v1.0.0-beta9-mine.10",
+			want:    true,
+		},
+		{
 			name:    "build metadata",
 			current: "v1.0.0+build.1",
 			latest:  "v1.0.0+build.2",
@@ -324,6 +348,15 @@ func TestSelectLatestGitHubRelease(t *testing.T) {
 		}, false, now)
 		require.NoError(t, err)
 		require.Equal(t, "v0.9.43", got)
+	})
+
+	t.Run("selects beta10 over beta9", func(t *testing.T) {
+		got, err := selectLatestGitHubRelease([]GitHubRelease{
+			{TagName: "v1.0.0-beta9", PublishedAt: now.Add(-time.Hour)},
+			{TagName: "v1.0.0-beta10", PublishedAt: now.Add(-2 * time.Hour)},
+		}, true, now)
+		require.NoError(t, err)
+		require.Equal(t, "v1.0.0-beta10", got)
 	})
 
 	t.Run("beta check still excludes other prereleases", func(t *testing.T) {

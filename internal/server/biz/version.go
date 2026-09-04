@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -159,7 +160,7 @@ func selectLatestGitHubRelease(releases []GitHubRelease, includeBeta bool, now t
 			continue
 		}
 
-		version, err := semver.NewVersion(release.TagName)
+		version, err := newVersionForComparison(release.TagName)
 		if err != nil {
 			continue
 		}
@@ -203,16 +204,51 @@ func isBetaReleaseTag(tag string) bool {
 	return strings.Contains(strings.ToLower(tag), "-beta")
 }
 
+// prereleaseNumRe matches a letter run immediately followed by digits inside a
+// prerelease identifier, e.g. "beta9" or "rc10".
+var prereleaseNumRe = regexp.MustCompile(`([a-zA-Z]+)(\d+)`)
+
+// normalizeForComparison rewrites prerelease identifiers so numeric suffixes are
+// compared numerically rather than lexically by the semver library.
+//
+// Example: "v1.0.0-beta10" becomes "v1.0.0-beta.10", which makes semver treat the
+// prerelease as ["beta", 10] (numeric) instead of ["beta10"] (an alphanumeric
+// identifier compared as a string, where "beta10" < "beta9").
+func normalizeForComparison(tag string) string {
+	idx := strings.Index(tag, "-")
+	if idx < 0 {
+		return tag
+	}
+
+	prerelease := tag[idx+1:]
+
+	// Keep build metadata (+...) intact; it does not affect precedence.
+	meta := ""
+	if m := strings.Index(prerelease, "+"); m >= 0 {
+		meta = prerelease[m:]
+		prerelease = prerelease[:m]
+	}
+
+	prerelease = prereleaseNumRe.ReplaceAllString(prerelease, `${1}.${2}`)
+	return tag[:idx] + "-" + prerelease + meta
+}
+
+// newVersionForComparison parses a tag into a semver.Version after normalizing its
+// prerelease identifiers so numeric suffixes compare correctly.
+func newVersionForComparison(tag string) (*semver.Version, error) {
+	return semver.NewVersion(normalizeForComparison(tag))
+}
+
 // IsNewerVersion compares two semantic versions and returns true if latest is newer than current.
 // Versions are expected to be in format "vX.Y.Z" or "X.Y.Z".
 func IsNewerVersion(current, latest string) bool {
-	vCurrent, err := semver.NewVersion(current)
+	vCurrent, err := newVersionForComparison(current)
 	if err != nil {
 		// Handle error, maybe log it and return false
 		return false
 	}
 
-	vLatest, err := semver.NewVersion(latest)
+	vLatest, err := newVersionForComparison(latest)
 	if err != nil {
 		// Handle error, maybe log it and return false
 		return false
