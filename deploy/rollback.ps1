@@ -132,6 +132,7 @@ if(-not $newBinary){
 }
 
 Write-Info 'Stopping AxonHub...'
+$env:AXONHUB_NO_WAIT = '1'
 $stopScript = Join-Path $ScriptDir 'stop.ps1'
 & $stopScript --force
 
@@ -141,6 +142,7 @@ Copy-Item -Path $newBinary -Destination $BinaryPath -Force
 Write-Info 'Starting AxonHub...'
 $startScript = Join-Path $ScriptDir 'start.ps1'
 & $startScript
+Remove-Item Env:AXONHUB_NO_WAIT -ErrorAction SilentlyContinue
 
 Write-Success "Rolled back to $targetVer"
 Wait-Exit

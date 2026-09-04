@@ -93,10 +93,12 @@ function Get-LatestReleaseTag {
     try {
       $resp = Invoke-WebRequest -Uri "https://github.com/$Repo/releases/latest" -Headers @{ 'User-Agent'='axonhub-upgrader' } -MaximumRedirection 0 -ErrorAction Stop
     } catch { $resp = $_.Exception.Response }
-    if($resp -and $resp.Headers['Location']){
-      $loc = $resp.Headers['Location']
-      if($loc -match '/tag/([^/]+)$'){ return $matches[1] }
+    $loc = $null
+    if($resp -and $resp.Headers){
+      if($resp.Headers.Location){ $loc = [string]$resp.Headers.Location }
+      elseif($resp.Headers['Location']){ $loc = $resp.Headers['Location'] }
     }
+    if($loc -match '/tag/([^/]+)$'){ return $matches[1] }
     Write-Err "Could not determine latest release version"
     Wait-Exit; exit 1
   }
@@ -166,11 +168,20 @@ function Compare-Version([string]$a,[string]$b){
   for($i=0; $i -lt $maxLen; $i++){
     $aVal = if($i -lt $aParts.Length){ $aParts[$i] } else { '0' }
     $bVal = if($i -lt $bParts.Length){ $bParts[$i] } else { '0' }
-    $aNum = 0; $bNum = 0
-    [int]::TryParse($aVal, [ref]$aNum) | Out-Null
-    [int]::TryParse($bVal, [ref]$bNum) | Out-Null
-    if($aNum -lt $bNum){ return -1 }
-    if($aNum -gt $bNum){ return 1 }
+    # 每段解析为「字母前缀 + 数字」，如 beta7 -> (beta, 7)
+    $ma = [regex]::Match($aVal, '^([a-zA-Z]*)(\d*)$')
+    $mb = [regex]::Match($bVal, '^([a-zA-Z]*)(\d*)$')
+    $pa = $ma.Groups[1].Value.ToLower()
+    $pb = $mb.Groups[1].Value.ToLower()
+    $na = if($ma.Groups[2].Value){ [int]$ma.Groups[2].Value } else { 0 }
+    $nb = if($mb.Groups[2].Value){ [int]$mb.Groups[2].Value } else { 0 }
+    if($pa -eq $pb){
+      if($na -lt $nb){ return -1 }
+      if($na -gt $nb){ return 1 }
+    } else {
+      if($pa -lt $pb){ return -1 }
+      if($pa -gt $pb){ return 1 }
+    }
   }
   return 0
 }
@@ -241,6 +252,7 @@ $NewBinary = Get-ChildItem -Path $TempDir -Recurse -Filter 'axonhub.exe' -File |
 if(-not $NewBinary){ Write-Err 'axonhub.exe not found in archive'; exit 1 }
 
 Write-Info 'Stopping AxonHub...'
+$env:AXONHUB_NO_WAIT = '1'
 $stopScript = Join-Path $ScriptDir 'stop.ps1'
 & $stopScript --force
 
@@ -252,6 +264,7 @@ Write-Success "AxonHub upgraded to $LatestVersion"
 Write-Info 'Starting AxonHub...'
 $startScript = Join-Path $ScriptDir 'start.ps1'
 & $startScript
+Remove-Item Env:AXONHUB_NO_WAIT -ErrorAction SilentlyContinue
 
 Write-Success 'Upgrade completed!'
 
