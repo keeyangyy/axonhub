@@ -161,6 +161,8 @@ type ChannelSettings {
   retryableStatusCodes: [Int!]
   retryableErrorPatterns: [RetryableErrorPattern!]
   modelProtocols: [ModelProtocol!]
+  apiKeyStrategy: String
+  apiKeyRoundRobinSwitchAfter: Int
 }
 
 enum CapabilityPolicy {
@@ -228,6 +230,8 @@ input ChannelSettingsInput {
   retryableStatusCodes: [Int!]
   retryableErrorPatterns: [RetryableErrorPatternInput!]
   modelProtocols: [ModelProtocolInput!]
+  apiKeyStrategy: String
+  apiKeyRoundRobinSwitchAfter: Int
 }
 
 input ChannelRateLimitInput {
