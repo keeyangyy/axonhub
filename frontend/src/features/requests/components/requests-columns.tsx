@@ -18,7 +18,7 @@ import { DataTableColumnHeader } from '@/components/data-table-column-header';
 import { useGeneralSettings, useSecuritySettings, useUpdateSecuritySettings } from '@/features/system/data/system';
 import { useRequestPermissions } from '../../../hooks/useRequestPermissions';
 import { Request } from '../data/schema';
-import { calculateTokensPerSecond, calculateTotalTimeTokensPerSecond, getTokensPerSecondValue } from '../utils/tokens-per-second';
+import { calculateTokensPerSecond, calculateTotalTimeTokensPerSecond, getTokensPerSecondValue, getTotalTimeTokensPerSecondValue } from '../utils/tokens-per-second';
 import { getStatusColor } from './help';
 
 interface UseRequestsColumnsOptions {
@@ -604,12 +604,19 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
                 : tps >= 10
                   ? 'font-mono text-xs text-yellow-600 dark:text-yellow-400'
                   : 'font-mono text-xs text-red-600 dark:text-red-400';
+        const totalTpsValue = getTotalTimeTokensPerSecondValue(row.original);
         const totalTps = calculateTotalTimeTokensPerSecond(row.original);
+        const totalTpsColor =
+          totalTpsValue != null && totalTpsValue >= 60
+            ? 'text-green-600 dark:text-green-400'
+            : totalTpsValue != null && totalTpsValue < 10
+              ? 'text-red-600 dark:text-red-400'
+              : 'text-muted-foreground';
         return (
           <div className='font-mono text-xs'>
             <div className={tpsColor}>{calculateTokensPerSecond(row.original)}</div>
             {totalTps !== '-' && (
-              <div className='text-muted-foreground'>{t('requests.columns.tokensPerSecondTotal', { value: totalTps })}</div>
+              <div className={totalTpsColor}>{t('requests.columns.tokensPerSecondTotal', { value: totalTps })}</div>
             )}
           </div>
         );
