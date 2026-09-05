@@ -9,8 +9,13 @@ function Wait-Exit {
   if($env:AXONHUB_NO_WAIT -eq '1'){ return }
   if([Console]::IsInputRedirected){ return }
   for($i = 10; $i -ge 1; $i--){
-    Write-Host "`r窗口将在 $i 秒后自动关闭，按任意键立即关闭...  " -NoNewline
-    if([Console]::KeyAvailable){ [void][Console]::ReadKey($true); break }
+    Write-Host "`r窗口将在 $i 秒后自动关闭，按任意键保留窗口...  " -NoNewline
+    if([Console]::KeyAvailable){
+      [void][Console]::ReadKey($true)
+      Write-Host ''
+      Write-Host '窗口已保留：查看完输出后，请直接关闭本窗口。'
+      while($true){ Start-Sleep -Seconds 5 }
+    }
     Start-Sleep -Seconds 1
   }
   Write-Host ''
