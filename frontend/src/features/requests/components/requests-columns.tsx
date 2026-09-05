@@ -460,17 +460,16 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
         }
 
         const hitRate = promptTokens > 0 ? (cachedTokens / promptTokens) * 100 : 0;
-        const isHighHitRate = hitRate >= 95;
-        const isMediumHitRate = hitRate >= 90;
-        const isLowHitRate = hitRate < 80 && promptTokens >= 40000;
 
-        const hitRateColor = isHighHitRate
+        const hitRateColor = hitRate >= 95
           ? 'font-medium text-green-600 dark:text-green-400'
-          : isMediumHitRate
+          : hitRate >= 90
             ? 'font-medium text-blue-600 dark:text-blue-400'
-            : isLowHitRate
-              ? 'font-medium text-red-600 dark:text-red-400'
-              : 'text-muted-foreground';
+            : hitRate >= 80
+              ? ''
+              : hitRate >= 50
+                ? 'font-medium text-yellow-600 dark:text-yellow-400'
+                : 'font-medium text-red-600 dark:text-red-400';
 
         return (
           <div className='text-xs'>
@@ -570,11 +569,13 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
         const firstTokenColor =
           firstTokenMs <= 3000
             ? 'text-green-600 dark:text-green-400'
-            : firstTokenMs <= 6000
+            : firstTokenMs <= 5000
               ? 'text-blue-600 dark:text-blue-400'
-              : firstTokenMs > 15000
-                ? 'text-red-600 dark:text-red-400'
-                : 'text-muted-foreground';
+              : firstTokenMs <= 10000
+                ? ''
+                : firstTokenMs <= 20000
+                  ? 'text-yellow-600 dark:text-yellow-400'
+                  : 'text-red-600 dark:text-red-400';
 
         return (
           <div className='min-w-[128px] font-mono text-xs'>
@@ -594,13 +595,15 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
       cell: ({ row }) => {
         const tps = getTokensPerSecondValue(row.original) ?? 0;
         const tpsColor =
-          tps > 60
+          tps >= 60
             ? 'font-mono text-xs text-green-600 dark:text-green-400'
-            : tps >= 30
+            : tps >= 40
               ? 'font-mono text-xs text-blue-600 dark:text-blue-400'
-              : tps < 10
-                ? 'font-mono text-xs text-red-600 dark:text-red-400'
-                : 'font-mono text-xs';
+              : tps >= 20
+                ? ''
+                : tps >= 10
+                  ? 'font-mono text-xs text-yellow-600 dark:text-yellow-400'
+                  : 'font-mono text-xs text-red-600 dark:text-red-400';
         const totalTps = calculateTotalTimeTokensPerSecond(row.original);
         return (
           <div className='font-mono text-xs'>
