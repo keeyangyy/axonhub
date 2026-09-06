@@ -857,16 +857,6 @@ func (s *responsesInboundStream) handleToolCalls(toolCalls []llm.ToolCall) error
 }
 
 // responsesToolCallKind returns the lifecycle kind represented by one unified tool call.
-func responsesToolCallKind(call *llm.ToolCall) string {
-	switch {
-	case call.ResponseToolSearchCall != nil:
-		return "tool_search"
-	case call.ResponseCustomToolCall != nil:
-		return "custom"
-	default:
-		return "function"
-	}
-}
 
 func (s *responsesInboundStream) initToolCall(tc llm.ToolCall) error {
 	toolCallIndex := tc.Index

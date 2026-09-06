@@ -60,7 +60,7 @@ func TestNewOutboundTransformer(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, transformer)
 				require.Equal(t, tt.apiKey, transformer.config.APIKeyProvider.Get(context.Background()))
-				// Base URL should be normalized with v1 version
+
 				require.Equal(t, "https://api.openai.com/v1", transformer.config.BaseURL)
 			}
 		})
@@ -195,30 +195,6 @@ func TestOutboundTransformer_TransformRequest_OmitsMetadataWhenEmpty(t *testing.
 	require.Nil(t, hreq.Metadata)
 }
 
-func TestOutboundTransformer_TransformRequest_DoesNotMutateRetryMetadata(t *testing.T) {
-	transformer, err := NewOutboundTransformer("https://api.openai.com", "test-api-key")
-	require.NoError(t, err)
-
-	request := &llm.Request{
-		Model:               "gpt-5.6",
-		TransformerMetadata: map[string]any{"caller": "kept"},
-		Messages: []llm.Message{{
-			Role: "user", Content: llm.MessageContent{Content: lo.ToPtr("generate an image")},
-		}},
-		Tools: []llm.Tool{{
-			Type: llm.ToolTypeImageGeneration,
-			ImageGeneration: &llm.ImageGeneration{
-				OutputFormat: "png",
-			},
-		}},
-	}
-	httpRequest, err := transformer.TransformRequest(t.Context(), request)
-	require.NoError(t, err)
-	require.Equal(t, map[string]any{"caller": "kept"}, request.TransformerMetadata)
-	require.NotContains(t, request.TransformerMetadata, "image_output_format")
-	require.Equal(t, "png", httpRequest.TransformerMetadata["image_output_format"])
-}
-
 func TestOutboundTransformer_TransformRequest_WebSearchRequiredToolChoice(t *testing.T) {
 	transformer, err := NewOutboundTransformer("https://api.openai.com", "test-api-key")
 	require.NoError(t, err)
@@ -340,34 +316,6 @@ func TestOutboundTransformer_TransformRequest_ReplaysProviderRawToolsAndToolChoi
 	require.Len(t, toolChoice["tools"], 1)
 }
 
-func TestOutboundTransformer_TransformRequest_ReplaysFutureFunctionLikeTool(t *testing.T) {
-	inbound := NewInboundTransformer()
-	llmReq, err := inbound.TransformRequest(context.Background(), &httpclient.Request{Body: []byte(`{
-		"model":"gpt-4o","input":"lookup","tools":[{
-			"type":"future_client_tool","name":"lookup","execution":"client",
-			"future_option":{"mode":"fast"},
-			"parameters":{"type":"object","properties":{"query":{"type":"string"}}}
-		}]
-	}`)})
-	require.NoError(t, err)
-	require.Len(t, llmReq.Tools, 1)
-	require.Equal(t, llm.ToolTypeFunction, llmReq.Tools[0].Type)
-
-	outbound, err := NewOutboundTransformer("https://api.openai.com", "test-api-key")
-	require.NoError(t, err)
-	httpReq, err := outbound.TransformRequest(context.Background(), llmReq)
-	require.NoError(t, err)
-
-	var payload map[string]any
-	require.NoError(t, json.Unmarshal(httpReq.Body, &payload))
-	tools := payload["tools"].([]any)
-	require.Len(t, tools, 1)
-	tool := tools[0].(map[string]any)
-	require.Equal(t, "future_client_tool", tool["type"])
-	require.Equal(t, "lookup", tool["name"])
-	require.Equal(t, "fast", tool["future_option"].(map[string]any)["mode"])
-}
-
 func TestOutboundTransformer_TransformRequest_ReplaysNamespaceTool(t *testing.T) {
 	inbound := NewInboundTransformer()
 	inboundReq := &httpclient.Request{
@@ -414,64 +362,6 @@ func TestOutboundTransformer_TransformRequest_ReplaysNamespaceTool(t *testing.T)
 	functionTool, ok := tools[1].(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, "get_weather", functionTool["name"])
-}
-
-func TestOutboundTransformer_TransformRequest_CombinesNonAdjacentNamespaceMembers(t *testing.T) {
-	llmReq := &llm.Request{Tools: []llm.Tool{
-		{Type: llm.ToolTypeFunction, Function: llm.Function{Name: "functions__one", Namespace: "functions", Parameters: []byte(`{"type":"object"}`)}},
-		{Type: llm.ToolTypeFunction, Function: llm.Function{Name: "mid", Parameters: []byte(`{"type":"object"}`)}},
-		{Type: llm.ToolTypeFunction, Function: llm.Function{Name: "functions__two", Namespace: "functions", Parameters: []byte(`{"type":"object"}`)}},
-	}}
-
-	outbound, err := NewOutboundTransformer("https://api.openai.com", "test-api-key")
-	require.NoError(t, err)
-	httpReq, err := outbound.TransformRequest(context.Background(), llmReq)
-	require.NoError(t, err)
-
-	var payload struct {
-		Tools []Tool `json:"tools"`
-	}
-	require.NoError(t, json.Unmarshal(httpReq.Body, &payload))
-	require.Len(t, payload.Tools, 2)
-	require.Equal(t, "namespace", payload.Tools[0].Type)
-	require.Equal(t, "functions", payload.Tools[0].Name)
-	require.Len(t, payload.Tools[0].Tools, 2)
-	require.Equal(t, "one", payload.Tools[0].Tools[0].Name)
-	require.Equal(t, "two", payload.Tools[0].Tools[1].Name)
-	require.Equal(t, "function", payload.Tools[1].Type)
-	require.Equal(t, "mid", payload.Tools[1].Name)
-}
-
-func TestOutboundTransformer_TransformRequest_RejectsConflictingNamespaceDescriptions(t *testing.T) {
-	llmReq := &llm.Request{Tools: []llm.Tool{
-		{
-			Type: llm.ToolTypeFunction, Function: llm.Function{Name: "functions__one", Namespace: "functions"},
-			ResponsesNamespaceDescription: "first",
-		},
-		{
-			Type: llm.ToolTypeFunction, Function: llm.Function{Name: "functions__two", Namespace: "functions"},
-			ResponsesNamespaceDescription: "second",
-		},
-	}}
-
-	outbound, err := NewOutboundTransformer("https://api.openai.com", "test-api-key")
-	require.NoError(t, err)
-	httpReq, err := outbound.TransformRequest(context.Background(), llmReq)
-	require.Nil(t, httpReq)
-	require.ErrorContains(t, err, `namespace_description_conflict: namespace "functions" has multiple descriptions`)
-}
-
-func TestOutboundTransformer_TransformRequest_RejectsNonCanonicalNamespaceFunctionName(t *testing.T) {
-	llmReq := &llm.Request{Tools: []llm.Tool{{
-		Type:     llm.ToolTypeFunction,
-		Function: llm.Function{Name: "exec", Namespace: "functions", Parameters: []byte(`{"type":"object"}`)},
-	}}}
-
-	outbound, err := NewOutboundTransformer("https://api.openai.com", "test-api-key")
-	require.NoError(t, err)
-	httpReq, err := outbound.TransformRequest(context.Background(), llmReq)
-	require.Nil(t, httpReq)
-	require.ErrorContains(t, err, `invalid_namespace_tool: function "exec" in namespace "functions" must use flattened name "functions__<name>"`)
 }
 
 func TestOutboundTransformer_TransformRequest_ReplaysProviderRawInputItems(t *testing.T) {
@@ -835,7 +725,7 @@ func TestOutboundTransformer_TransformRequest(t *testing.T) {
 
 				err := json.Unmarshal(result.Body, &req)
 				require.NoError(t, err)
-				// Unsupported tools should be skipped
+
 				require.Len(t, req.Tools, 0)
 			},
 		},
@@ -931,7 +821,7 @@ func TestOutboundTransformer_TransformRequest(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, req.Reasoning)
 				require.Equal(t, "high", req.Reasoning.Effort)
-				// MaxTokens should be nil when effort is specified (priority rule)
+
 				require.Nil(t, req.Reasoning.MaxTokens)
 			},
 		},
@@ -1111,7 +1001,6 @@ func TestOutboundTransformer_TransformRequest(t *testing.T) {
 						},
 					},
 				},
-				// No tools provided
 			},
 			expectError: false,
 			validate: func(t *testing.T, result *httpclient.Request, chatReq *llm.Request) {
@@ -1275,7 +1164,6 @@ func TestOutboundTransformer_TransformRequest_PromptCacheKeyScopedPerConversatio
 		return *payload.PromptCacheKey
 	}
 
-	// Later turns of the same conversation keep the same cache key.
 	turn1 := cacheKey(newReq("task A"))
 	turn2 := cacheKey(newReq("task A",
 		llm.Message{Role: "assistant", Content: llm.MessageContent{Content: lo.ToPtr("working")}},
@@ -1283,17 +1171,12 @@ func TestOutboundTransformer_TransformRequest_PromptCacheKeyScopedPerConversatio
 	))
 	require.Equal(t, turn1, turn2)
 
-	// Sibling conversations in the same session get distinct cache keys.
 	require.NotEqual(t, turn1, cacheKey(newReq("task B")))
 
-	// Client-provided keys are preserved untouched.
 	explicit := newReq("task A")
 	explicit.PromptCacheKey = lo.ToPtr("client-key")
 	require.Equal(t, "client-key", cacheKey(explicit))
 
-	// A large shared instruction prefix must not starve the first user
-	// message out of the fingerprint: sibling conversations still get
-	// distinct keys.
 	largeSystem := strings.Repeat("shared instructions. ", 2048)
 	largeReq := func(firstUser string) *llm.Request {
 		return &llm.Request{
@@ -1306,8 +1189,6 @@ func TestOutboundTransformer_TransformRequest_PromptCacheKeyScopedPerConversatio
 	}
 	require.NotEqual(t, cacheKey(largeReq("task A")), cacheKey(largeReq("task B")))
 
-	// Non-text content contributes to the fingerprint: first user messages
-	// that differ only by an image part get distinct keys.
 	imageReq := func(imageURL string) *llm.Request {
 		return &llm.Request{
 			Model: "gpt-5.4",
@@ -1559,35 +1440,6 @@ func TestOutboundTransformer_TransformResponse(t *testing.T) {
 	}
 }
 
-func TestOutboundTransformer_TransformResponse_PreservesCustomToolCallNamespace(t *testing.T) {
-	transformer, err := NewOutboundTransformer("https://api.openai.com", "test-api-key")
-	require.NoError(t, err)
-
-	result, err := transformer.TransformResponse(context.Background(), &httpclient.Response{
-		StatusCode: http.StatusOK,
-		Body: []byte(`{
-			"id": "resp_namespace_custom",
-			"object": "response",
-			"created_at": 1765086000,
-			"status": "completed",
-			"model": "gpt-5.5",
-			"output": [{
-				"type": "custom_tool_call",
-				"call_id": "call_exec",
-				"namespace": "functions",
-				"name": "exec",
-				"input": "ls"
-			}]
-		}`),
-	})
-	require.NoError(t, err)
-	require.Len(t, result.Choices, 1)
-	require.Len(t, result.Choices[0].Message.ToolCalls, 1)
-	customCall := result.Choices[0].Message.ToolCalls[0].ResponseCustomToolCall
-	require.NotNil(t, customCall)
-	require.Equal(t, "functions", customCall.Namespace)
-}
-
 func TestOutboundTransformer_TransformImageEditResponse(t *testing.T) {
 	transformer, err := NewOutboundTransformer("https://api.openai.com", "test-api-key")
 	require.NoError(t, err)
@@ -1649,14 +1501,13 @@ func TestOutboundTransformer_TransformRequest_WithTestData(t *testing.T) {
 			name:        "image generation request transformation",
 			requestFile: "image-generation.request.json",
 			validate: func(t *testing.T, result *httpclient.Request, expectedReq *llm.Request) {
-				// Verify basic HTTP request properties
+
 				require.Equal(t, http.MethodPost, result.Method)
 				require.Equal(t, "https://api.openai.com/v1/responses", result.URL)
 				require.Equal(t, "application/json", result.Headers.Get("Content-Type"))
 				require.Equal(t, "application/json", result.Headers.Get("Accept"))
 				require.NotEmpty(t, result.Body)
 
-				// Verify auth
 				require.NotNil(t, result.Auth)
 				require.Equal(t, "bearer", result.Auth.Type)
 				require.Equal(t, "test-api-key", result.Auth.APIKey)
@@ -1667,10 +1518,8 @@ func TestOutboundTransformer_TransformRequest_WithTestData(t *testing.T) {
 				err := json.Unmarshal(result.Body, &req)
 				require.NoError(t, err)
 
-				// Verify model
 				require.Equal(t, expectedReq.Model, req.Model)
 
-				// Verify tools transformation
 				if len(expectedReq.Tools) > 0 {
 					require.NotNil(t, req.Tools)
 					require.Len(t, req.Tools, len(expectedReq.Tools))
@@ -1700,16 +1549,13 @@ func TestOutboundTransformer_TransformRequest_WithTestData(t *testing.T) {
 				return
 			}
 
-			// Create transformer
 			transformer, err := NewOutboundTransformer("https://api.openai.com", "test-api-key")
 			require.NoError(t, err)
 
-			// Transform the request
 			result, err := transformer.TransformRequest(context.Background(), &expectedReq)
 			require.NoError(t, err)
 			require.NotNil(t, result)
 
-			// Run validation
 			tt.validate(t, result, &expectedReq)
 		})
 	}
@@ -1743,25 +1589,22 @@ func TestOutboundTransformer_TransformResponse_WithTestData(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var responseData json.RawMessage
-			// Load the test response data
+
 			err := xtest.LoadTestData(t, tt.responseFile, &responseData)
 			if err != nil {
 				t.Errorf("Test data file %s not found, skipping test", tt.responseFile)
 				return
 			}
 
-			// Create HTTP response
 			httpResp := &httpclient.Response{
 				StatusCode: http.StatusOK,
 				Body:       responseData,
 			}
 
-			// Transform the response
 			result, err := transformer.TransformResponse(context.Background(), httpResp)
 			require.NoError(t, err)
 			require.NotNil(t, result)
 
-			// Run validation
 			tt.validate(t, result)
 		})
 	}

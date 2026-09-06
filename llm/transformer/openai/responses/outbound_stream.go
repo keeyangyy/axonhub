@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"math/big"
-	"reflect"
 	"strings"
 
 	"github.com/samber/lo"
@@ -975,61 +973,6 @@ func equalJSONValues(left, right string) bool {
 	}
 
 	return equalDecodedJSONValues(leftValue, rightValue)
-}
-
-func toolSearchMissingArguments(callID, forwardedArgs, finalArgs string) (string, error) {
-	switch {
-	case forwardedArgs == "":
-		return finalArgs, nil
-	case strings.HasPrefix(finalArgs, forwardedArgs):
-		return strings.TrimPrefix(finalArgs, forwardedArgs), nil
-	case equalJSONValues(forwardedArgs, finalArgs):
-		return "", nil
-	default:
-		return "", fmt.Errorf("tool search call arguments mismatch for call_id %q", callID)
-	}
-}
-
-func equalDecodedJSONValues(left, right any) bool {
-	switch leftValue := left.(type) {
-	case json.Number:
-		rightValue, ok := right.(json.Number)
-		if !ok {
-			return false
-		}
-		if leftValue.String() == rightValue.String() {
-			return true
-		}
-		var leftRat, rightRat big.Rat
-		_, leftOK := leftRat.SetString(leftValue.String())
-		_, rightOK := rightRat.SetString(rightValue.String())
-		return leftOK && rightOK && leftRat.Cmp(&rightRat) == 0
-	case []any:
-		rightValue, ok := right.([]any)
-		if !ok || len(leftValue) != len(rightValue) {
-			return false
-		}
-		for index := range leftValue {
-			if !equalDecodedJSONValues(leftValue[index], rightValue[index]) {
-				return false
-			}
-		}
-		return true
-	case map[string]any:
-		rightValue, ok := right.(map[string]any)
-		if !ok || len(leftValue) != len(rightValue) {
-			return false
-		}
-		for key, leftItem := range leftValue {
-			rightItem, exists := rightValue[key]
-			if !exists || !equalDecodedJSONValues(leftItem, rightItem) {
-				return false
-			}
-		}
-		return true
-	default:
-		return reflect.DeepEqual(left, right)
-	}
 }
 
 // decodeJSONValue preserves numeric lexemes so semantic comparisons do not

@@ -275,10 +275,6 @@ func (t *OutboundTransformer) TransformRequest(ctx context.Context, llmReq *llm.
 	}, nil
 }
 
-func isResponsesAPIFormat(format llm.APIFormat) bool {
-	return llm.IsOpenAIResponsesFormat(format)
-}
-
 // TransformResponse transforms Response to ChatCompletionResponse.
 func (t *OutboundTransformer) TransformResponse(
 	ctx context.Context,
@@ -378,22 +374,8 @@ func (t *OutboundTransformer) TransformStream(ctx context.Context, req *httpclie
 }
 
 // responsesChatToolMappings retrieves per-request mappings used to restore Responses calls.
-func responsesChatToolMappings(req *httpclient.Request) map[string]responsesChatToolMapping {
-	if req == nil || req.TransformerMetadata == nil {
-		return nil
-	}
-	mappings, _ := req.TransformerMetadata[ResponsesChatToolMappingsMetadataKey].(map[string]responsesChatToolMapping)
-	return mappings
-}
 
 // responsesChatToolCatalog retrieves callable names used to restore fragmented tool calls.
-func responsesChatToolCatalog(req *httpclient.Request) []string {
-	if req == nil || req.TransformerMetadata == nil {
-		return nil
-	}
-	catalog, _ := req.TransformerMetadata[ResponsesChatToolCatalogMetadataKey].([]string)
-	return catalog
-}
 
 func (t *OutboundTransformer) TransformStreamChunk(
 	ctx context.Context,
