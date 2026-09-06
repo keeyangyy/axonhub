@@ -16,6 +16,10 @@ type QuotaChecker interface {
 	SupportsChannel(channel *ent.Channel) bool
 }
 
+// ErrInvalidCredentials marks provider credentials that can no longer produce
+// a trustworthy quota response, so cached quota data must not be used.
+var ErrInvalidCredentials = errors.New("provider quota credentials are invalid")
+
 // ErrResetUnsupported is returned when a provider checker does not implement Resetter.
 var ErrResetUnsupported = errors.New("provider quota reset is not supported")
 
@@ -53,6 +57,9 @@ const (
 
 // ApertisDefaultBaseURL is the default base URL for the Apertis API.
 const ApertisDefaultBaseURL = "https://api.apertis.ai"
+
+// ZenmuxDefaultBaseURL is the default base URL for the ZenMux API.
+const ZenmuxDefaultBaseURL = "https://zenmux.ai"
 
 type QuotaLimitStatus struct {
 	Type        QuotaLimitType `json:"type"`

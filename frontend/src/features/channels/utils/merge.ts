@@ -127,8 +127,9 @@ export function mergeChannelSettingsForUpdate(
     retryableStatusCodes: pick('retryableStatusCodes', existing?.retryableStatusCodes ?? []),
     retryableErrorPatterns: pick('retryableErrorPatterns', existing?.retryableErrorPatterns ?? []),
     modelProtocols: pick('modelProtocols', existing?.modelProtocols ?? []),
-    apiKeyStrategy: pick('apiKeyStrategy', existing?.apiKeyStrategy ?? null),
+apiKeyStrategy: pick('apiKeyStrategy', existing?.apiKeyStrategy ?? null),
     apiKeyRoundRobinSwitchAfter: pick('apiKeyRoundRobinSwitchAfter', existing?.apiKeyRoundRobinSwitchAfter ?? null),
+    providerQuota: pick('providerQuota', existing?.providerQuota ?? null),
   };
 }
 

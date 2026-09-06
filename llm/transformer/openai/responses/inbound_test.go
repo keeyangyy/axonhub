@@ -269,6 +269,13 @@ func TestInboundTransformer_TransformRequest(t *testing.T) {
 			expectError: true,
 		},
 		{
+			name: "stream_id is websocket only",
+			httpReq: &httpclient.Request{
+				Body: []byte(`{"model":"gpt-4o","input":"Hello","stream_id":"main"}`),
+			},
+			expectError: true,
+		},
+		{
 			name: "simple text input",
 			httpReq: &httpclient.Request{
 				Body: []byte(`{
@@ -770,6 +777,25 @@ func TestInboundTransformer_TransformRequest(t *testing.T) {
 	}
 }
 
+func TestInboundTransformer_TransformRequest_RejectsHTTPStreamIDWithParam(t *testing.T) {
+	trans := NewInboundTransformer()
+
+	_, err := trans.TransformRequest(t.Context(), &httpclient.Request{
+		Body: []byte(`{"model":"gpt-4o","input":"Hello","stream_id":"main"}`),
+	})
+	require.Error(t, err)
+
+	httpErr := trans.TransformError(t.Context(), err)
+	require.Equal(t, http.StatusBadRequest, httpErr.StatusCode)
+	require.JSONEq(t, `{
+		"error":{
+			"message":"Unsupported parameter: stream_id",
+			"type":"invalid_request_error",
+			"param":"stream_id"
+		}
+	}`, string(httpErr.Body))
+}
+
 func TestInboundTransformer_TransformRequest_PreservesWebSearchTools(t *testing.T) {
 	trans := NewInboundTransformer()
 
@@ -1007,6 +1033,31 @@ func TestInboundTransformer_TransformRequest_MergesRepeatedToolOutputs(t *testin
 	merged := flattenToolContent(t, result.Messages[2].Content)
 	require.Contains(t, merged, "Script completed")
 	require.Contains(t, merged, "notify 工具测试成功")
+}
+
+func TestInboundTransformer_TransformRequest_PreservesInputFiles(t *testing.T) {
+	trans := NewInboundTransformer()
+	result, err := trans.TransformRequest(t.Context(), &httpclient.Request{
+		Body: []byte(`{
+			"model":"gpt-5.6",
+			"input":[{"role":"user","content":[
+				{"type":"input_file","filename":"inline.pdf","file_data":"data:application/pdf;base64,JVBERi0xLjQK"},
+				{"type":"input_file","filename":"remote.pdf","file_url":"https://example.com/remote.pdf"},
+				{"type":"input_file","file_id":"file_123"}
+			]}]
+		}`),
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Len(t, result.Messages, 1)
+	require.Len(t, result.Messages[0].Content.MultipleContent, 3)
+	require.Equal(t, "data:application/pdf;base64,JVBERi0xLjQK", result.Messages[0].Content.MultipleContent[0].Document.URL)
+	require.Equal(t, "application/pdf", result.Messages[0].Content.MultipleContent[0].Document.MIMEType)
+	require.Equal(t, "inline.pdf", result.Messages[0].Content.MultipleContent[0].Document.Filename)
+	require.Equal(t, "https://example.com/remote.pdf", result.Messages[0].Content.MultipleContent[1].Document.URL)
+	require.Equal(t, "remote.pdf", result.Messages[0].Content.MultipleContent[1].Document.Filename)
+	require.Equal(t, "file_123", result.Messages[0].Content.MultipleContent[2].Document.FileID)
 }
 
 func TestInboundTransformer_PreservesNamespaceCustomAndFunctionToolCalls(t *testing.T) {

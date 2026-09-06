@@ -11,6 +11,21 @@ import (
 	"github.com/looplj/axonhub/llm/transformer"
 )
 
+var rawCreateRequestFields = []string{
+	"context_management",
+	"conversation",
+	"moderation",
+	"prompt",
+	"prompt_cache_options",
+}
+
+var rawCompactRequestFields = []string{
+	"previous_response_id",
+	"prompt_cache_options",
+	"prompt_cache_retention",
+	"service_tier",
+}
+
 func attachOpenAIResponsesRequestExtensions(chatReq *llm.Request, req *Request, rawBody []byte) {
 	if chatReq == nil || req == nil {
 		return
@@ -23,6 +38,7 @@ func attachOpenAIResponsesRequestExtensions(chatReq *llm.Request, req *Request, 
 	}
 	requestExt := &llm.OpenAIResponsesRequestExtensions{
 		ReasoningContext: reasoningContext,
+		RawFields:        selectRawRequestFields(raw.Fields, rawCreateRequestFields),
 		RawTools:         buildRawOnlyToolFragments(req.Tools, raw.Tools),
 		RawToolChoice:    rawUnsupportedToolChoice(req.ToolChoice, raw.ToolChoice),
 		RawInputItems:    buildRawOnlyInputFragments(req.Input, raw.InputItems),
@@ -30,7 +46,7 @@ func attachOpenAIResponsesRequestExtensions(chatReq *llm.Request, req *Request, 
 		RawInputTools:    replayInputToolSignatures(chatReq.Tools),
 	}
 
-	if requestExt.ReasoningContext == "" && len(requestExt.RawTools) == 0 && len(requestExt.RawToolChoice) == 0 && len(requestExt.RawInputItems) == 0 {
+	if requestExt.ReasoningContext == "" && len(requestExt.RawFields) == 0 && len(requestExt.RawTools) == 0 && len(requestExt.RawToolChoice) == 0 && len(requestExt.RawInputItems) == 0 {
 		return
 	}
 
@@ -42,6 +58,7 @@ func attachOpenAIResponsesRequestExtensions(chatReq *llm.Request, req *Request, 
 }
 
 type rawRequestFragments struct {
+	Fields     map[string]json.RawMessage
 	Tools      []json.RawMessage
 	ToolChoice json.RawMessage
 	InputItems []json.RawMessage
@@ -60,6 +77,10 @@ func parseRawRequestFragments(rawBody []byte) rawRequestFragments {
 	if err := json.Unmarshal(rawBody, &raw); err != nil {
 		return rawRequestFragments{}
 	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(rawBody, &fields); err != nil {
+		return rawRequestFragments{}
+	}
 
 	var inputItems []json.RawMessage
 	if len(raw.Input) > 0 && json.Unmarshal(raw.Input, &inputItems) != nil {
@@ -67,12 +88,59 @@ func parseRawRequestFragments(rawBody []byte) rawRequestFragments {
 	}
 
 	return rawRequestFragments{
+		Fields:     fields,
 		Tools:      raw.Tools,
 		ToolChoice: raw.ToolChoice,
 		InputItems: inputItems,
 	}
 }
 
+func attachOpenAIResponsesRawRequestFields(chatReq *llm.Request, rawBody []byte, fieldNames []string) {
+	if chatReq == nil || len(rawBody) == 0 {
+		return
+	}
+
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(rawBody, &fields) != nil {
+		return
+	}
+	rawFields := selectRawRequestFields(fields, fieldNames)
+	if len(rawFields) == 0 {
+		return
+	}
+
+	ext := llm.EnsureOpenAIResponsesProviderExtensions(chatReq)
+	if ext == nil {
+		return
+	}
+	if ext.Request == nil {
+		ext.Request = &llm.OpenAIResponsesRequestExtensions{}
+	}
+	if ext.Request.RawFields == nil {
+		ext.Request.RawFields = make(map[string]json.RawMessage, len(rawFields))
+	}
+	for key, value := range rawFields {
+		ext.Request.RawFields[key] = value
+	}
+}
+
+func selectRawRequestFields(fields map[string]json.RawMessage, fieldNames []string) map[string]json.RawMessage {
+	if len(fields) == 0 || len(fieldNames) == 0 {
+		return nil
+	}
+
+	selected := make(map[string]json.RawMessage, len(fieldNames))
+	for _, name := range fieldNames {
+		if value, ok := fields[name]; ok {
+			selected[name] = cloneRaw(value)
+		}
+	}
+	if len(selected) == 0 {
+		return nil
+	}
+
+	return selected
+}
 func buildRawOnlyToolFragments(tools []Tool, rawTools []json.RawMessage) []llm.OpenAIResponsesRawFragment {
 	if len(tools) == 0 {
 		return nil
@@ -213,6 +281,7 @@ func marshalRequestPayload(payload Request, llmReq *llm.Request) ([]byte, error)
 	if err := json.Unmarshal(body, &obj); err != nil {
 		return nil, err
 	}
+	mergeRawRequestFields(obj, requestExt)
 
 	// Compute once: replay matching re-marshals every message and tool, so
 	// both raw merges share the same verdict.
@@ -241,6 +310,38 @@ func marshalRequestPayload(payload Request, llmReq *llm.Request) ([]byte, error)
 		}
 		obj["input"] = inputRaw
 	}
+
+	return json.Marshal(obj)
+}
+
+func mergeRawRequestFields(obj map[string]json.RawMessage, requestExt *llm.OpenAIResponsesRequestExtensions) {
+	if obj == nil || requestExt == nil {
+		return
+	}
+
+	for key, value := range requestExt.RawFields {
+		if _, exists := obj[key]; !exists && len(value) > 0 {
+			obj[key] = cloneRaw(value)
+		}
+	}
+}
+
+func marshalCompactRequestPayload(payload CompactAPIRequest, llmReq *llm.Request) ([]byte, error) {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	requestExt := openAIResponsesRequestExtensions(llmReq)
+	if requestExt == nil || len(requestExt.RawFields) == 0 {
+		return body, nil
+	}
+
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(body, &obj); err != nil {
+		return nil, err
+	}
+	mergeRawRequestFields(obj, requestExt)
 
 	return json.Marshal(obj)
 }

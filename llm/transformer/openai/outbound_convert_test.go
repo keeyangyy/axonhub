@@ -1431,6 +1431,44 @@ func TestMessageContentPartAudioRoundTrip(t *testing.T) {
 	require.Equal(t, "audio-base64", roundTrip.InputAudio.Data)
 }
 
+func TestMessageContentPartFileRoundTrip(t *testing.T) {
+	part := llm.MessageContentPart{
+		Type: "document",
+		Document: &llm.DocumentURL{
+			URL:      "data:application/pdf;base64,JVBERi0xLjQK",
+			MIMEType: "application/pdf",
+			Filename: "report.pdf",
+		},
+	}
+
+	oaiPart := MessageContentPartFromLLM(part)
+	require.Equal(t, "file", oaiPart.Type)
+	require.NotNil(t, oaiPart.File)
+	require.Equal(t, "report.pdf", oaiPart.File.Filename)
+	require.Equal(t, part.Document.URL, oaiPart.File.FileData)
+
+	roundTrip := oaiPart.ToLLMPart()
+	require.Equal(t, "document", roundTrip.Type)
+	require.NotNil(t, roundTrip.Document)
+	require.Equal(t, "report.pdf", roundTrip.Document.Filename)
+	require.Equal(t, part.Document.URL, roundTrip.Document.URL)
+}
+
+func TestMessageContentPartFromLLMDoesNotMapRegularFileURLToFileData(t *testing.T) {
+	part := MessageContentPartFromLLM(llm.MessageContentPart{
+		Type: "document",
+		Document: &llm.DocumentURL{
+			URL:      "https://example.com/report.pdf",
+			MIMEType: "application/pdf",
+		},
+	})
+
+	require.Equal(t, "file", part.Type)
+	require.NotNil(t, part.File)
+	require.Empty(t, part.File.FileData)
+	require.Empty(t, part.File.FileID)
+}
+
 func TestMessageContentFromLLM_IgnoresCompactionParts(t *testing.T) {
 	content := MessageContentFromLLM(llm.MessageContent{
 		MultipleContent: []llm.MessageContentPart{
@@ -2228,4 +2266,96 @@ func TestMergeResponsesChatToolCallFragments_NamespaceAndMetadata(t *testing.T) 
 	mergedAgain := mergeResponsesChatToolCallFragments(merged, next)
 	require.Equal(t, "collaboration", mergedAgain.Function.Namespace)
 	require.Equal(t, map[string]any{"origin": "namespace"}, mergedAgain.TransformerMetadata)
+}
+
+func TestRequestFromLLM_MergesMultipleSystemMessages(t *testing.T) {
+	req, err := RequestFromLLM(context.Background(), &llm.Request{
+		Model: "qwen-max",
+		Messages: []llm.Message{
+			{Role: "system", Content: llm.MessageContent{Content: lo.ToPtr("You are a coding agent.")}},
+			{Role: "system", Content: llm.MessageContent{Content: lo.ToPtr("Use rg for searches.")}},
+			{Role: "user", Content: llm.MessageContent{Content: lo.ToPtr("Hello")}},
+			{Role: "system", Content: llm.MessageContent{Content: lo.ToPtr("Keep answers short.")}},
+		},
+	}, ReasoningFieldNone)
+	require.NoError(t, err)
+
+	require.NotNil(t, req)
+	require.Len(t, req.Messages, 2)
+	require.Equal(t, "system", req.Messages[0].Role)
+	require.Equal(t,
+		"You are a coding agent.\n\nUse rg for searches.\n\nKeep answers short.",
+		*req.Messages[0].Content.Content)
+	require.Equal(t, "user", req.Messages[1].Role)
+	require.Equal(t, "Hello", *req.Messages[1].Content.Content)
+}
+
+func TestRequestFromLLM_MovesSingleLateSystemMessageToBeginning(t *testing.T) {
+	req, err := RequestFromLLM(context.Background(), &llm.Request{
+		Model: "qwen-max",
+		Messages: []llm.Message{
+			{Role: "user", Content: llm.MessageContent{Content: lo.ToPtr("Hello")}},
+			{Role: "system", Content: llm.MessageContent{Content: lo.ToPtr("Use concise answers.")}},
+		},
+	}, ReasoningFieldNone)
+	require.NoError(t, err)
+
+	require.NotNil(t, req)
+	require.Len(t, req.Messages, 2)
+	require.Equal(t, "system", req.Messages[0].Role)
+	require.Equal(t, "Use concise answers.", *req.Messages[0].Content.Content)
+	require.Equal(t, "user", req.Messages[1].Role)
+}
+
+func TestRequestFromLLM_KeepsSingleSystemMessage(t *testing.T) {
+	req, err := RequestFromLLM(context.Background(), &llm.Request{
+		Model: "qwen-max",
+		Messages: []llm.Message{
+			{Role: "system", Content: llm.MessageContent{Content: lo.ToPtr("You are a coding agent.")}},
+			{Role: "user", Content: llm.MessageContent{Content: lo.ToPtr("Hello")}},
+		},
+	}, ReasoningFieldNone)
+	require.NoError(t, err)
+
+	require.NotNil(t, req)
+	require.Len(t, req.Messages, 2)
+	require.Equal(t, "system", req.Messages[0].Role)
+	require.Equal(t, "You are a coding agent.", *req.Messages[0].Content.Content)
+}
+
+// When a message carries both scalar Content and MultipleContent (both layers
+// treat MultipleContent as authoritative on marshal), merging must emit only
+// the MultipleContent text and not duplicate the scalar.
+func TestRequestFromLLM_MergesSystemMessages_MultipleContentPrecedence(t *testing.T) {
+	req, err := RequestFromLLM(context.Background(), &llm.Request{
+		Model: "qwen-max",
+		Messages: []llm.Message{
+			{
+				Role: "system",
+				Content: llm.MessageContent{
+					Content: lo.ToPtr("STALE SCALAR — must not appear"),
+					MultipleContent: []llm.MessageContentPart{
+						{Type: "text", Text: lo.ToPtr("You are a coding agent.")},
+						{Type: "text", Text: lo.ToPtr("Use rg for searches.")},
+					},
+				},
+			},
+			{
+				Role: "system",
+				Content: llm.MessageContent{
+					Content: lo.ToPtr("Second scalar"),
+				},
+			},
+			{Role: "user", Content: llm.MessageContent{Content: lo.ToPtr("Hello")}},
+		},
+	}, ReasoningFieldNone)
+	require.NoError(t, err)
+
+	require.NotNil(t, req)
+	require.Len(t, req.Messages, 2)
+	require.Equal(t, "system", req.Messages[0].Role)
+	merged := *req.Messages[0].Content.Content
+	require.Equal(t, "You are a coding agent.\n\nUse rg for searches.\n\nSecond scalar", merged)
+	require.NotContains(t, merged, "STALE SCALAR")
+	require.Equal(t, "user", req.Messages[1].Role)
 }
