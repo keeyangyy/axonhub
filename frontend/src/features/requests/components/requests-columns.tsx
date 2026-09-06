@@ -594,20 +594,26 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
       enableHiding: true,
       cell: ({ row }) => {
         const tps = getTokensPerSecondValue(row.original) ?? 0;
+        // Rates above 500 are treated as measurement artifacts (tiny effective
+        // latency from TTFT subtraction can inflate the rate) — show no color.
         const tpsColor =
-          tps >= 60
-            ? 'font-mono text-xs text-green-600 dark:text-green-400'
-            : tps >= 40
-              ? 'font-mono text-xs text-blue-600 dark:text-blue-400'
-              : tps >= 20
-                ? ''
-                : tps >= 10
-                  ? 'font-mono text-xs text-yellow-600 dark:text-yellow-400'
-                  : 'font-mono text-xs text-red-600 dark:text-red-400';
+          tps > 500
+            ? ''
+            : tps >= 60
+              ? 'font-mono text-xs text-green-600 dark:text-green-400'
+              : tps >= 40
+                ? 'font-mono text-xs text-blue-600 dark:text-blue-400'
+                : tps >= 20
+                  ? ''
+                  : tps >= 10
+                    ? 'font-mono text-xs text-yellow-600 dark:text-yellow-400'
+                    : 'font-mono text-xs text-red-600 dark:text-red-400';
         const totalTpsValue = getTotalTimeTokensPerSecondValue(row.original);
         const totalTps = calculateTotalTimeTokensPerSecond(row.original);
+        // Total rate includes TTFT, so its green threshold is lower than the
+        // generation-rate column above (50 vs 60).
         const totalTpsColor =
-          totalTpsValue != null && totalTpsValue >= 60
+          totalTpsValue != null && totalTpsValue >= 50
             ? 'text-green-600 dark:text-green-400'
             : totalTpsValue != null && totalTpsValue < 10
               ? 'text-red-600 dark:text-red-400'
