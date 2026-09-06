@@ -408,62 +408,6 @@ func (t *OutboundTransformer) TransformRequest(ctx context.Context, llmReq *llm.
 	return httpReq, nil
 }
 
-func rememberNamespaceMember(namespace, description string, member Tool, members map[string][]Tool, tools *[]Tool) {
-	if _, exists := members[namespace]; !exists {
-		*tools = append(*tools, Tool{
-			Type: "namespace", Name: namespace, Description: description,
-		})
-	}
-	members[namespace] = append(members[namespace], member)
-}
-
-func validateUniqueNamespaceGroups(
-	tools []llm.Tool,
-	replayRawInput bool,
-	requestExt *llm.OpenAIResponsesRequestExtensions,
-) error {
-	rawSeen := make(map[string]struct{})
-	descriptions := make(map[string]string)
-	if requestExt != nil {
-		for _, fragment := range requestExt.RawTools {
-			if len(fragment.Raw) == 0 {
-				continue
-			}
-			var rawTool Tool
-			if json.Unmarshal(fragment.Raw, &rawTool) != nil || rawTool.Type != "namespace" || rawTool.Name == "" {
-				continue
-			}
-			if _, exists := rawSeen[rawTool.Name]; exists {
-				return fmt.Errorf(
-					"%w: duplicate_namespace: namespace %q appears in multiple tool declarations",
-					transformer.ErrInvalidRequest, rawTool.Name,
-				)
-			}
-			rawSeen[rawTool.Name] = struct{}{}
-		}
-	}
-	for _, tool := range tools {
-		if !responsesOriginToolEmitsTopLevel(tool, replayRawInput) {
-			continue
-		}
-		namespace := namespaceOfResponsesTool(tool)
-		if namespace == "" {
-			continue
-		}
-		description := tool.ResponsesNamespaceDescription
-		previous, exists := descriptions[namespace]
-		if !exists {
-			descriptions[namespace] = description
-		} else if previous != description {
-			return fmt.Errorf(
-				"%w: namespace_description_conflict: namespace %q has multiple descriptions",
-				transformer.ErrInvalidRequest, namespace,
-			)
-		}
-	}
-	return nil
-}
-
 // buildFullRequestURL constructs the appropriate URL based on the platform.
 func (t *OutboundTransformer) buildFullRequestURL(_ *llm.Request) (string, error) {
 	if t.config.RawURL {
