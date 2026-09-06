@@ -27,14 +27,6 @@ import (
 	"github.com/looplj/axonhub/llm/pipeline/cc"
 	"github.com/looplj/axonhub/llm/streams"
 	"github.com/looplj/axonhub/llm/transformer"
-	anthropictransformer "github.com/looplj/axonhub/llm/transformer/anthropic"
-	bailiantransformer "github.com/looplj/axonhub/llm/transformer/bailian"
-	longcattransformer "github.com/looplj/axonhub/llm/transformer/longcat"
-	modelscopetransformer "github.com/looplj/axonhub/llm/transformer/modelscope"
-	moonshottransformer "github.com/looplj/axonhub/llm/transformer/moonshot"
-	openaitransformer "github.com/looplj/axonhub/llm/transformer/openai"
-	openairesponses "github.com/looplj/axonhub/llm/transformer/openai/responses"
-	xaitransformer "github.com/looplj/axonhub/llm/transformer/xai"
 )
 
 // mockTransformer is a simple mock transformer for testing.
