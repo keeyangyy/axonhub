@@ -30,7 +30,7 @@ func (t *InboundTransformer) TransformStream(
 	stream streams.Stream[*llm.Response],
 ) (streams.Stream[*httpclient.StreamEvent], error) {
 	return &responsesInboundStream{
-		source:              stream,
+		source:              newR2CAuthoritativeUsageStream(stream), // fork(R2C): 见 r2c_stream_usage.go
 		ctx:                 ctx,
 		toolCalls:           make(map[int]*llm.ToolCall),
 		transformerMetadata: make(map[string]any),
