@@ -740,6 +740,13 @@ func (p *PersistentOutboundTransformer) CanRetry(err error) bool {
 	// is tried immediately. The load balancer (e.g. ErrorAware strategy) will
 	// deprioritize this channel for subsequent requests and it will naturally
 	// recover as the rate-limit window resets.
+	//
+	// NOTE: This branch only matches an error that is still a raw *httpclient.Error.
+	// Upstream 429s usually arrive here already converted to *llm.ResponseError,
+	// which IsRateLimitErr does not recognize, so they fall through to the
+	// retryable check below and are retried on the SAME channel. Verified
+	// 2026-09-11 (requests #36450/#36451: channel_id stayed constant across 429
+	// retries). Keep this in mind before changing this branch.
 	if httpclient.IsRateLimitErr(err) {
 		log.Debug(context.Background(), "429 rate limit, skipping same-channel retry to switch to next channel",
 			log.Int("channel_id", p.state.CurrentCandidate.Channel.ID),
