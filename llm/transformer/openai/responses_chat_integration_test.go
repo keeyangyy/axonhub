@@ -2061,10 +2061,17 @@ func TestChatTools_FiltersEstablishedNonChatToolsWithoutCompatibilityWarning(t *
 	require.NotContains(t, logs.String(), "Responses request degraded during Chat Completions conversion")
 }
 
-// TestResponsesToChatHistory_FlattensMultipartToolOutputToString guards against
-// a 400 from Chat Completions providers: the tool role requires string content,
-// but a Responses function_call_output with several text items produced an array.
-func TestResponsesToChatHistory_FlattensMultipartToolOutputToString(t *testing.T) {
+// TestResponsesToChatHistory_KeepsMultipartToolOutputParts verifies that a
+// Responses function_call_output carrying several text items keeps all of its
+// parts, matching upstream conversion behavior.
+//
+// History: this case used to assert the opposite - the parts were flattened
+// into one string to avoid a 400 from Chat providers that only accept string
+// tool content. That flatten also silently dropped non-text parts, so a Codex
+// view_image result (image only, no text) reached the model as an empty tool
+// result. Non-text parts are no longer dropped; a provider that rejects array
+// tool content must be handled at the channel level instead.
+func TestResponsesToChatHistory_KeepsMultipartToolOutputParts(t *testing.T) {
 	ctx := context.Background()
 	responsesInbound := responsesapi.NewInboundTransformer()
 	llmRequest, err := responsesInbound.TransformRequest(ctx, &httpclient.Request{Body: []byte(`{
@@ -2093,12 +2100,10 @@ func TestResponsesToChatHistory_FlattensMultipartToolOutputToString(t *testing.T
 
 	toolMsg, ok := lo.Find(converted.Messages, func(m Message) bool { return m.Role == "tool" })
 	require.True(t, ok)
-	require.Empty(t, toolMsg.Content.MultipleContent, "tool content must not be an array")
-	require.Equal(t,
-		"Script failed\nWall time 0.0 seconds\nOutput:\nScript error:\nSyntaxError: Unexpected token ':'",
-		lo.FromPtr(toolMsg.Content.Content))
+	require.Len(t, toolMsg.Content.MultipleContent, 2, "tool content keeps every part")
+	require.Nil(t, toolMsg.Content.Content)
 
-	// The serialized body must carry the tool content as a JSON string.
+	// The serialized body must carry the tool content as a JSON array.
 	var raw struct {
 		Messages []struct {
 			Role    string          `json:"role"`
@@ -2114,14 +2119,14 @@ func TestResponsesToChatHistory_FlattensMultipartToolOutputToString(t *testing.T
 		return m.Role == "tool"
 	})
 	require.True(t, ok)
-	require.True(t, strings.HasPrefix(strings.TrimSpace(string(rawTool.Content)), `"`),
-		"tool content should serialize as a string, got: %s", string(rawTool.Content))
+	require.True(t, strings.HasPrefix(strings.TrimSpace(string(rawTool.Content)), `[`),
+		"tool content should serialize as an array, got: %s", string(rawTool.Content))
 }
 
-// TestResponsesToChatHistory_FlattensCustomToolOutput mirrors the Codex exec
-// custom tool, whose outputs arrive as custom_tool_call_output with several
-// text items and must land in the Chat tool message as a single string.
-func TestResponsesToChatHistory_FlattensCustomToolOutput(t *testing.T) {
+// TestResponsesToChatHistory_KeepsMultipartCustomToolOutput mirrors the Codex
+// exec custom tool, whose outputs arrive as custom_tool_call_output with
+// several text items, and verifies every part survives the conversion.
+func TestResponsesToChatHistory_KeepsMultipartCustomToolOutput(t *testing.T) {
 	ctx := context.Background()
 	responsesInbound := responsesapi.NewInboundTransformer()
 	llmRequest, err := responsesInbound.TransformRequest(ctx, &httpclient.Request{Body: []byte(`{
@@ -2150,10 +2155,12 @@ func TestResponsesToChatHistory_FlattensCustomToolOutput(t *testing.T) {
 
 	toolMsg, ok := lo.Find(converted.Messages, func(m Message) bool { return m.Role == "tool" })
 	require.True(t, ok)
-	require.Empty(t, toolMsg.Content.MultipleContent, "custom tool output must not be an array")
-	require.Equal(t,
-		"Script completed\nWall time 1.5 seconds\nOutput:\n/repo\nfile.txt\n",
-		lo.FromPtr(toolMsg.Content.Content))
+	require.Len(t, toolMsg.Content.MultipleContent, 2, "custom tool output keeps every part")
+	require.Nil(t, toolMsg.Content.Content)
+	require.Equal(t, "Script completed\nWall time 1.5 seconds\nOutput:\n",
+		lo.FromPtr(toolMsg.Content.MultipleContent[0].Text))
+	require.Equal(t, "/repo\nfile.txt\n",
+		lo.FromPtr(toolMsg.Content.MultipleContent[1].Text))
 }
 
 func TestResponsesToChatHistory_SanitizesEmptyToolSearchArguments(t *testing.T) {
