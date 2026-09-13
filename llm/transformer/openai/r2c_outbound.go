@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"strings"
 
 	"github.com/looplj/axonhub/llm"
 	"github.com/looplj/axonhub/llm/httpclient"
@@ -161,6 +162,24 @@ func requestFromLLMWithResponsesToolAdapter(ctx context.Context, r *llm.Request,
 		return nil, toolAdapter, toolAdapter.err
 	}
 	return req, toolAdapter, nil
+}
+
+// flattenChatToolContent (fork; moved from outbound_convert.go)
+func flattenChatToolContent(content MessageContent) MessageContent {
+	if len(content.MultipleContent) == 0 {
+		return content
+	}
+
+	var builder strings.Builder
+	for _, part := range content.MultipleContent {
+		if part.Type == "text" && part.Text != nil {
+			builder.WriteString(*part.Text)
+		}
+	}
+
+	text := builder.String()
+
+	return MessageContent{Content: &text}
 }
 
 // isResponsesAPIFormat (fork; moved from outbound.go)
