@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/uuid"
-
 	"github.com/looplj/axonhub/llm"
 	"github.com/looplj/axonhub/llm/auth"
 	"github.com/looplj/axonhub/llm/httpclient"
@@ -267,7 +265,12 @@ func setSessionHeader(ctx context.Context, llmReq *llm.Request, httpReq *httpcli
 		httpReq.Headers = make(http.Header)
 	}
 
+	// The upstream free tier rejects requests whose client-generated IDs are
+	// missing or malformed (HTTP 403 FreeTierError). Always send a properly
+	// shaped session ID (ses_...) and a fresh per-request ID (msg_...),
+	// mirroring the OpenCode CLI generator (see idgen.go).
 	httpReq.Headers.Set(SessionHeader, resolveSessionID(ctx, llmReq))
+	httpReq.Headers.Set(RequestHeader, genRequestID())
 }
 
 func resolveSessionID(ctx context.Context, llmReq *llm.Request) string {
@@ -283,7 +286,11 @@ func resolveSessionID(ctx context.Context, llmReq *llm.Request) string {
 		}
 	}
 
-	return uuid.NewString()
+	// Fallback must match the upstream ID shape; a bare UUID would be rejected
+	// by the Console free-tier validation. A shared sticky session (rotated on
+	// idle/age, see session.go) mimics a real CLI conversation lifecycle
+	// instead of producing 1:1 session-to-request outliers.
+	return stickySessionID()
 }
 
 // TransformResponse dispatches to the sub-transformer recorded on the request.

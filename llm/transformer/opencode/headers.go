@@ -8,6 +8,8 @@ import (
 const (
 	// SessionHeader is the current OpenCode conversation identifier header.
 	SessionHeader = "X-Opencode-Session"
+	// RequestHeader is the per-request OpenCode identifier header (client-generated).
+	RequestHeader = "X-Opencode-Request"
 	// SessionIDHeader is used by OpenCode clients that expose their session ID directly.
 	SessionIDHeader = "X-Session-Id"
 	// SessionAffinityHeader is the legacy OpenCode session affinity header.
