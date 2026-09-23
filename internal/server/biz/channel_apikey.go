@@ -122,31 +122,18 @@ func (svc *ChannelService) DisableAPIKey(
 			Reason:          autoDisabledReason,
 			OccurredAt:      autoDisabledAt,
 		})
-	}
 
-	// fork: reload the local cache synchronously, in both cases.
-	//
-	// The async watcher notification alone leaves a debounce window in which the next
-	// request still picks the key (or the channel) that was just disabled, so a
-	// "disable after N consecutive failures" rule appears to fire one request late.
-	// The channel-disabled case already did this; doing it for a plain key disable is
-	// what keeps a multi-key channel from spending one more request on a dead key.
-	reloadCtx, cancel := xcontext.DetachWithTimeout(ctx, 10*time.Second)
-	defer cancel()
+		// Synchronously reload the local cache to immediately stop selecting this channel.
+		// This matches the behavior of markChannelUnavailable.
+		reloadCtx, cancel := xcontext.DetachWithTimeout(ctx, 10*time.Second)
+		defer cancel()
 
-	reloadStarted := time.Now()
-
-	if err := svc.enabledChannelsCache.Load(reloadCtx, true); err != nil {
-		log.Warn(ctx, "Failed to synchronously reload channels after API key disable",
-			log.Int("channel_id", channelID),
-			log.Cause(err),
-		)
-	} else {
-		log.Info(ctx, "Synchronously reloaded channels after API key disable",
-			log.Int("channel_id", channelID),
-			log.Bool("channel_disabled", channelDisabled),
-			log.Int("elapsed_ms", int(time.Since(reloadStarted).Milliseconds())),
-		)
+		if err := svc.enabledChannelsCache.Load(reloadCtx, true); err != nil {
+			log.Warn(ctx, "Failed to synchronously reload channels after API key exhaustion",
+				log.Int("channel_id", channelID),
+				log.Cause(err),
+			)
+		}
 	}
 
 	// Also notify other instances via the watcher for cross-instance cache invalidation.
