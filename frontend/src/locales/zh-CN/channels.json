@@ -356,7 +356,7 @@
   "channels.dialogs.fields.apiKey.placeholder": "sk-...",
   "channels.dialogs.fields.apiKey.editPlaceholder": "留空则保持不变",
   "channels.dialogs.fields.apiKey.revealToEditHint": "点击右上角的眼睛图标查看后才可以编辑",
-"channels.dialogs.fields.apiKey.multiLineHint": "每行一个 API Key；多 Key 时按下方「Key 策略」选择使用。",
+  "channels.dialogs.fields.apiKey.multiLineHint": "每行一个 API Key；多 Key 时按下方「Key 策略」选择使用。",
   "channels.dialogs.fields.apiKeyStrategy.label": "Key 策略",
   "channels.dialogs.fields.apiKeyStrategy.tooltip": "当渠道存在多个可用 Key 时的选择方式。",
   "channels.dialogs.fields.apiKeyStrategy.options.sticky": "粘性（同一 trace ID 固定同一 Key，无 trace 时随机）",
