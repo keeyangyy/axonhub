@@ -28,8 +28,10 @@ type apiKeySelectionState struct {
 	// report uses it to decide whether this channel counts successes at all.
 	strategy string
 
-	// snapshot points at the freshest *Channel of this channel. Selections read
-	// through it so a key disabled mid-request is honoured by the next call.
+	// snapshot points at the freshest *Channel of this channel, published by the
+	// enabled-channel cache. Providers do not select from it (each one keeps the
+	// channel it was built with); the success report reads it to know the key
+	// array the round_robin_success cursor should advance through.
 	snapshot atomic.Pointer[Channel]
 
 	// rrCounter is the round_robin request counter. It is kept here, not in the
@@ -90,9 +92,35 @@ func (svc *ChannelService) apiKeySelectionStateFor(ch *Channel) *apiKeySelection
 	state.rrSuccessPer = per
 	state.mu.Unlock()
 
-	state.snapshot.Store(ch)
-
 	return state
+}
+
+// publishAPIKeySelectionSnapshot records the channel the success report should
+// read its key array from, so a round_robin_success cursor advances over the
+// channels that are actually in service.
+//
+// Only the enabled-channel cache calls this. Other builds — a single channel
+// lookup, the key-test flow (GetChannelWithKey) or endpoint detection — must not
+// overwrite it: they build a channel outside the serving set, and a success
+// report reading their key array would move the cursor over keys that are not
+// being served.
+//
+// The store takes st.mu, the same mutex that guards the cursor updates. A
+// provider decides whether it still owns the cursor by comparing the snapshot
+// (isServing) and then writes it; if publication were not serialized with that
+// pair, a reload could land in between and the provider would write a cursor
+// computed from a key array that is no longer served.
+func (svc *ChannelService) publishAPIKeySelectionSnapshot(ch *Channel) {
+	if ch == nil || ch.apiKeyState == nil {
+		return
+	}
+
+	state := ch.apiKeyState
+
+	state.mu.Lock()
+	defer state.mu.Unlock()
+
+	state.snapshot.Store(ch)
 }
 
 // apiKeySelectionState returns the shared state of a channel, or nil when the
@@ -135,9 +163,10 @@ func (st *apiKeySelectionState) nextRoundRobinKey(ch *Channel, per int) string {
 }
 
 // stickyKeyFor returns the sticky key of a trace, remembering the choice on the
-// shared state so a channel rebuild keeps the session on the same key. The
-// remembered key wins even if the enabled set changed, mirroring the upstream
-// provider's behaviour.
+// shared state so a channel rebuild keeps the same key. The cache outlives the
+// provider it used to live in, so a remembered key is only reused while it is
+// still in the enabled set: once it is disabled or removed, the trace moves to a
+// key that can actually serve.
 func (st *apiKeySelectionState) stickyKeyFor(ch *Channel, traceID string) string {
 	enabled := ch.cachedEnabledAPIKeys
 	if len(enabled) == 0 {
@@ -155,7 +184,7 @@ func (st *apiKeySelectionState) stickyKeyFor(ch *Channel, traceID string) string
 		st.stickyCache, _ = lru.New[string, string](traceStickyLRUSize)
 	}
 
-	if cached, ok := st.stickyCache.Get(traceID); ok {
+	if cached, ok := st.stickyCache.Get(traceID); ok && slices.Contains(enabled, cached) {
 		return cached
 	}
 
@@ -163,6 +192,27 @@ func (st *apiKeySelectionState) stickyKeyFor(ch *Channel, traceID string) string
 	st.stickyCache.Add(traceID, selected)
 
 	return selected
+}
+
+// isServing reports whether ch is the channel generation this state currently
+// serves, i.e. the latest snapshot published by the enabled-channel cache.
+//
+// A provider built from an older snapshot must not move the cursor of a channel
+// that has been rebuilt since. Its key array is a different one, so walking it
+// can step the cursor backwards (a stale provider does not know the key the
+// current provider just moved to) or reset a counter the current provider
+// already advanced. Reading is always allowed: the provider only ever hands back
+// a key from its own snapshot, which is the generation its outbound transformer
+// belongs to.
+//
+// A state that was never published (the enabled cache starts out empty) has no
+// current generation, so it accepts writes.
+//
+// Callers hold st.mu.
+func (st *apiKeySelectionState) isServing(ch *Channel) bool {
+	serving := st.snapshot.Load()
+
+	return serving == nil || serving == ch
 }
 
 // selectFixedKey returns the key the fixed strategy should use and records it.
@@ -184,15 +234,20 @@ func (st *apiKeySelectionState) selectFixedKey(ch *Channel) string {
 
 	if idx := slices.Index(all, st.fixedCursorKey); idx >= 0 {
 		if _, isDisabled := disabled[st.fixedCursorKey]; !isDisabled {
-			st.fixedCursorIdx = idx
+			if st.isServing(ch) {
+				st.fixedCursorIdx = idx
+			}
 
 			return st.fixedCursorKey
 		}
 	}
 
 	selectedKey, idx := firstSelectableFrom(all, disabled, positionOf(all, st.fixedCursorKey, st.fixedCursorIdx))
-	st.fixedCursorKey = selectedKey
-	st.fixedCursorIdx = idx
+
+	if st.isServing(ch) {
+		st.fixedCursorKey = selectedKey
+		st.fixedCursorIdx = idx
+	}
 
 	return selectedKey
 }
@@ -204,6 +259,9 @@ func (st *apiKeySelectionState) selectFixedKey(ch *Channel) string {
 // The cursor key is reused while it stays selectable. When it is disabled or
 // removed, the cursor moves forward through the full key array (wrapping around)
 // and the success counter restarts.
+//
+// Only the provider built from the currently served snapshot moves the cursor;
+// see isServing.
 func (st *apiKeySelectionState) selectRoundRobinSuccessKey(ch *Channel) string {
 	all := ch.Credentials.GetAllAPIKeys()
 	if len(all) == 0 {
@@ -217,16 +275,21 @@ func (st *apiKeySelectionState) selectRoundRobinSuccessKey(ch *Channel) string {
 
 	if idx := slices.Index(all, st.rrSuccessCursor); idx >= 0 {
 		if _, isDisabled := disabled[st.rrSuccessCursor]; !isDisabled {
-			st.rrSuccessIdx = idx
+			if st.isServing(ch) {
+				st.rrSuccessIdx = idx
+			}
 
 			return st.rrSuccessCursor
 		}
 	}
 
 	selectedKey, idx := firstSelectableFrom(all, disabled, positionOf(all, st.rrSuccessCursor, st.rrSuccessIdx))
-	st.rrSuccessCursor = selectedKey
-	st.rrSuccessIdx = idx
-	st.rrSuccessCount = 0
+
+	if st.isServing(ch) {
+		st.rrSuccessCursor = selectedKey
+		st.rrSuccessIdx = idx
+		st.rrSuccessCount = 0
+	}
 
 	return selectedKey
 }
@@ -258,10 +321,7 @@ func (svc *ChannelService) onAPIKeySuccess(channelID int, apiKey string) {
 
 	state.rrSuccessCount++
 
-	per := state.rrSuccessPer
-	if per < 1 {
-		per = 1
-	}
+	per := max(state.rrSuccessPer, 1)
 
 	if state.rrSuccessCount < per {
 		return

@@ -53,6 +53,14 @@ func strategyKeepsSelectionState(strategy string) bool {
 // newMultiKeyProvider builds the key provider for a channel with more than one
 // enabled key, dispatching on ChannelSettings.APIKeyStrategy. Unknown or empty
 // strategies fall back to the historical sticky behavior.
+//
+// Every provider selects from the channel snapshot it was built with. A provider
+// and the outbound transformer beside it come from the same snapshot, and that
+// snapshot is what pairs the keys with the endpoint they are sent to, so a
+// provider must never read a snapshot published by a later reload: it would pick
+// a key belonging to a different channel generation than the endpoint the
+// request is about to call. The shared per-channel state supplies selection
+// cursors only, never the channel.
 func newMultiKeyProvider(ch *Channel) auth.APIKeyProvider {
 	switch channelAPIKeyStrategy(ch) {
 	case objects.APIKeyStrategyRandom:
@@ -82,20 +90,6 @@ func selectableKeys(ch *Channel) []string {
 	return enabled
 }
 
-// currentChannel returns the freshest snapshot known for a channel. The
-// strategies that keep shared state read through it so a key disabled while the
-// request is in flight (by the auto-disable rules, for example) is honoured by
-// the next selection instead of only by a rebuilt request.
-func currentChannel(built *Channel, state *apiKeySelectionState) *Channel {
-	if state != nil {
-		if latest := state.snapshot.Load(); latest != nil {
-			return latest
-		}
-	}
-
-	return built
-}
-
 // positionOf returns the index of cursorKey inside all. When the key is absent
 // (removed from the channel) it returns cursorIdx, so a walk continues from
 // where the key used to sit instead of restarting at the head of the array.
@@ -122,7 +116,7 @@ func firstSelectableFrom(all []string, disabled map[string]struct{}, start int) 
 		start = 0
 	}
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		idx := (start + i) % n
 		if _, isDisabled := disabled[all[idx]]; !isDisabled {
 			return all[idx], idx
@@ -176,7 +170,7 @@ func (p *sharedStickyKeyProvider) Get(ctx context.Context) string {
 		return NewTraceStickyKeyProvider(p.channel).Get(ctx)
 	}
 
-	ch := currentChannel(p.channel, p.state)
+	ch := p.channel
 
 	enabled := ch.cachedEnabledAPIKeys
 	if len(enabled) == 0 {
@@ -241,7 +235,7 @@ func NewRoundRobinKeyProvider(channel *Channel, per int) *RoundRobinKeyProvider 
 }
 
 func (p *RoundRobinKeyProvider) Get(ctx context.Context) string {
-	ch := currentChannel(p.channel, p.state)
+	ch := p.channel
 
 	var selectedKey string
 
@@ -250,6 +244,7 @@ func (p *RoundRobinKeyProvider) Get(ctx context.Context) string {
 	} else {
 		enabled := selectableKeys(ch)
 
+		//nolint:gosec // G115 - per is normalized to >= 1 at construction.
 		index := (p.fallback.Add(1) - 1) / uint64(p.per) % uint64(len(enabled))
 		selectedKey = enabled[index]
 	}
@@ -286,7 +281,7 @@ func (p *RoundRobinSuccessKeyProvider) Get(ctx context.Context) string {
 		return enabled[0]
 	}
 
-	selectedKey := p.state.selectRoundRobinSuccessKey(currentChannel(p.channel, p.state))
+	selectedKey := p.state.selectRoundRobinSuccessKey(p.channel)
 
 	contexts.WithChannelAPIKey(ctx, selectedKey)
 
@@ -341,7 +336,7 @@ func (p *FixedKeyProvider) Get(ctx context.Context) string {
 		return enabled[0]
 	}
 
-	selectedKey := p.state.selectFixedKey(currentChannel(p.channel, p.state))
+	selectedKey := p.state.selectFixedKey(p.channel)
 
 	contexts.WithChannelAPIKey(ctx, selectedKey)
 
