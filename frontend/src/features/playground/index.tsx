@@ -363,10 +363,26 @@ export default function Playground() {
     }
   }, [canUseModelGateway, modelSource]);
 
-  // 初始化 / 校准：默认选第一个渠道；若当前选中渠道已不可用（如已被关闭），回退到第一个可用渠道
+  // 初始化 / 校准：默认选第一个渠道；若当前选中渠道已不可用（如已被关闭），回退到第一个可用渠道。
+  // 若已无任何可用渠道，清空选择，避免提交时仍带上已不可用的渠道 ID 与模型。
   useEffect(() => {
-    if (channelsLoading || channelOptions.length === 0) return;
-    if (channelOptions.some((option) => option.value === selectedChannel)) return;
+    if (channelsLoading) return;
+
+    if (channelOptions.length === 0) {
+      setSelectedChannel('');
+      if (!isModelGatewaySource) {
+        setModel('');
+      }
+      return;
+    }
+
+    if (channelOptions.some((option) => option.value === selectedChannel)) {
+      // 渠道仍可用但模型条目变化时，校准选中的 model，避免提交过期模型
+      if (!isModelGatewaySource && !modelOptions.some((option) => option.value === model)) {
+        setModel(modelOptions[0]?.value ?? '');
+      }
+      return;
+    }
 
     if (isModelGatewaySource) {
       setSelectedChannel(channelOptions[0].value);
@@ -374,7 +390,7 @@ export default function Playground() {
     }
 
     handleChannelChange(channelOptions[0].value);
-  }, [channelOptions, channelsLoading, handleChannelChange, isModelGatewaySource, selectedChannel]);
+  }, [channelOptions, channelsLoading, handleChannelChange, isModelGatewaySource, model, modelOptions, selectedChannel]);
 
   useEffect(() => {
     if (isModelGatewaySource && !model && modelPageModelOptions.length > 0) {
