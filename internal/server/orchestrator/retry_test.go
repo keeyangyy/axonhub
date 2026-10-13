@@ -277,11 +277,14 @@ func TestIsRetryableError(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "429 Too Many Requests is retryable",
+			// fork: 429 is no longer retryable by default. A channel opts 429 back
+			// in through ChannelSettings.RetryableStatusCodes (see CanRetry and
+			// isRetryableErrorForChannel).
+			name: "429 Too Many Requests is not retryable by default",
 			err: &httpclient.Error{
 				StatusCode: http.StatusTooManyRequests,
 			},
-			expected: true,
+			expected: false,
 		},
 		{
 			name: "400 Bad Request is not retryable",

@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"errors"
+	"net/http"
 	"regexp"
 	"slices"
 	"strings"
@@ -41,6 +42,21 @@ func isRetryableErrorForChannel(err error, ch *biz.Channel) bool {
 
 	return slices.Contains(ch.Settings.RetryableStatusCodes, statusCode) ||
 		matchesRetryableErrorPattern(err, ch.Settings.RetryableErrorPatterns)
+}
+
+// channelRetriesOn429 reports whether the channel explicitly opts 429 into
+// same-channel retries through ChannelSettings.RetryableStatusCodes.
+//
+// fork: upstream always skips same-channel retries on 429 (see CanRetry). A
+// channel that lists 429 here is saying "this 429 is the endpoint being busy,
+// not me being throttled" — retrying the same channel is then worthwhile, so
+// CanRetry lets the error fall through to isRetryableErrorForChannel.
+func channelRetriesOn429(ch *biz.Channel) bool {
+	if ch == nil || ch.Channel == nil || ch.Settings == nil {
+		return false
+	}
+
+	return slices.Contains(ch.Settings.RetryableStatusCodes, http.StatusTooManyRequests)
 }
 
 func matchesRetryableErrorPattern(err error, patterns []objects.RetryableErrorPattern) bool {
