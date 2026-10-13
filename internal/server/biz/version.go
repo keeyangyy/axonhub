@@ -42,17 +42,22 @@ type VersionCheckResult struct {
 	ReleaseURL     string `json:"release_url"`
 }
 
-// CheckForUpdate checks if there is a newer version available on GitHub.
-func (s *SystemService) CheckForUpdate(ctx context.Context, includeBeta bool) (*VersionCheckResult, error) {
+// CheckForUpdate checks if there is a newer version available on GitHub for the
+// given repository (owner/repo format, e.g. "looplj/axonhub").
+func (s *SystemService) CheckForUpdate(ctx context.Context, includeBeta bool, repo string) (*VersionCheckResult, error) {
+	if repo == "" {
+		repo = "looplj/axonhub"
+	}
+
 	currentVersion := build.Version
 
-	latestVersion, err := s.fetchLatestGitHubRelease(ctx, includeBeta)
+	latestVersion, err := s.fetchLatestGitHubRelease(ctx, includeBeta, repo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch latest release: %w", err)
 	}
 
 	hasUpdate := s.isNewerVersion(currentVersion, latestVersion)
-	releaseURL := fmt.Sprintf("https://github.com/looplj/axonhub/releases/tag/%s", latestVersion)
+	releaseURL := fmt.Sprintf("https://github.com/%s/releases/tag/%s", repo, latestVersion)
 
 	return &VersionCheckResult{
 		CurrentVersion: currentVersion,
@@ -63,8 +68,8 @@ func (s *SystemService) CheckForUpdate(ctx context.Context, includeBeta bool) (*
 }
 
 // fetchLatestGitHubRelease fetches the latest eligible release tag from GitHub.
-func (s *SystemService) fetchLatestGitHubRelease(ctx context.Context, includeBeta bool) (string, error) {
-	return FetchLatestGitHubRelease(ctx, includeBeta)
+func (s *SystemService) fetchLatestGitHubRelease(ctx context.Context, includeBeta bool, repo string) (string, error) {
+	return FetchLatestGitHubRelease(ctx, includeBeta, repo)
 }
 
 // isNewerVersion compares two semantic versions and returns true if latest is newer than current.
@@ -88,8 +93,12 @@ const releaseCooldownDuration = 30 * time.Minute
 // Beta versions are included when includeBeta is true; other prereleases are always skipped.
 // It waits for a cooldown period after release.
 // In monorepo mode, it only considers tags matching "vX.Y.Z" (no service prefix).
-func FetchLatestGitHubRelease(ctx context.Context, includeBeta bool) (string, error) {
-	baseURL := "https://api.github.com/repos/looplj/axonhub/releases"
+func FetchLatestGitHubRelease(ctx context.Context, includeBeta bool, repo string) (string, error) {
+	if repo == "" {
+		repo = "looplj/axonhub"
+	}
+
+	baseURL := "https://api.github.com/repos/" + repo + "/releases"
 
 	u, err := url.Parse(baseURL)
 	if err != nil {
