@@ -4,6 +4,22 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# 脚本执行完毕后倒计时等待，便于查看输出（程序调用时自动跳过）
+function Wait-Exit {
+  if($env:AXONHUB_NO_WAIT -eq '1'){ return }
+  if([Console]::IsInputRedirected){ return }
+  for($i = 10; $i -ge 1; $i--){
+    Write-Host "`r窗口将在 $i 秒后自动关闭，按任意键保留窗口...  " -NoNewline
+    if([Console]::KeyAvailable){
+      [void][Console]::ReadKey($true)
+      Write-Host ''
+      Write-Host '窗口已保留：查看完输出后，请直接关闭本窗口。'
+      while($true){ Start-Sleep -Seconds 5 }
+    }
+    Start-Sleep -Seconds 1
+  }
+  Write-Host ''
+}
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 function Write-Info([string]$m){ Write-Host "[INFO] $m" -ForegroundColor Cyan }
@@ -84,7 +100,7 @@ Write-Info 'Starting AxonHub...'
 if(-not (Test-Path -LiteralPath $BinaryPath -PathType Leaf)){
   Write-Err "AxonHub binary not found at $InstalledBinaryPath or $BundledBinaryPath"
   Write-Info 'Please run the installer first: install.bat'
-  exit 1
+  Wait-Exit; exit 1
 }
 
 Ensure-Dirs $BaseDir
@@ -92,10 +108,10 @@ Ensure-Dirs $BaseDir
 # Already running?
 if(Test-Path $PidFile){
   try {
-    $processId = Get-Content -Path $PidFile -ErrorAction Stop
+$processId = Get-Content -Path $PidFile -ErrorAction Stop
     if($processId -and (Get-Process -Id $processId -ErrorAction SilentlyContinue)){
       Write-Warn "AxonHub is already running (PID: $processId)"
-      exit 0
+      Wait-Exit; exit 0
     } else {
       Write-Info 'Removing stale PID file'
       Remove-Item -Force $PidFile -ErrorAction SilentlyContinue
@@ -109,7 +125,7 @@ if(Test-Path $PidFile){
 $port = Get-ConfiguredPort
 if(-not (Check-Port $port)){
   Write-Err "Cannot start AxonHub: port $port is already in use"
-  exit 1
+  Wait-Exit; exit 1
 }
 
 $ConfigArgs = @()
@@ -156,11 +172,13 @@ try {
     }
     if(Test-Path $PidFile){ Remove-Item -Force $PidFile -ErrorAction SilentlyContinue }
     Remove-Item -Force $stdoutTempFile,$stderrTempFile -ErrorAction SilentlyContinue
-    exit 1
+    Wait-Exit; exit 1
   }
 } catch {
   Write-Err $_.Exception.Message
   if(Test-Path $PidFile){ Remove-Item -Force $PidFile -ErrorAction SilentlyContinue }
   Remove-Item -Force $stdoutTempFile,$stderrTempFile -ErrorAction SilentlyContinue
-  exit 1
+  Wait-Exit; exit 1
 }
+
+Wait-Exit

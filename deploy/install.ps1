@@ -4,6 +4,22 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# 脚本执行完毕后倒计时等待，便于查看输出（程序调用时自动跳过）
+function Wait-Exit {
+  if($env:AXONHUB_NO_WAIT -eq '1'){ return }
+  if([Console]::IsInputRedirected){ return }
+  for($i = 10; $i -ge 1; $i--){
+    Write-Host "`r窗口将在 $i 秒后自动关闭，按任意键保留窗口...  " -NoNewline
+    if([Console]::KeyAvailable){
+      [void][Console]::ReadKey($true)
+      Write-Host ''
+      Write-Host '窗口已保留：查看完输出后，请直接关闭本窗口。'
+      while($true){ Start-Sleep -Seconds 5 }
+    }
+    Start-Sleep -Seconds 1
+  }
+  Write-Host ''
+}
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 function Write-Info([string]$m){ Write-Host "[INFO] $m" -ForegroundColor Cyan }
@@ -11,7 +27,7 @@ function Write-Success([string]$m){ Write-Host "[SUCCESS] $m" -ForegroundColor G
 function Write-Warn([string]$m){ Write-Host "[WARNING] $m" -ForegroundColor Yellow }
 function Write-Err([string]$m){ Write-Host "[ERROR] $m" -ForegroundColor Red }
 
-$Repo = 'looplj/axonhub'
+$Repo = 'keeyangyy/axonhub'
 $Api = "https://api.github.com/repos/$Repo"
 
 $IncludeBeta = $false
@@ -79,7 +95,7 @@ function Get-LatestReleaseTag {
       if($loc -match '/tag/([^/]+)$'){ return $matches[1] }
     }
     Write-Err "Could not determine latest release version"
-    exit 1
+    Wait-Exit; exit 1
   }
 }
 
@@ -125,7 +141,7 @@ function Get-AssetUrl([string]$version,[string]$platform){
     return $candidate
   } catch {
     Write-Err "Could not find asset for platform $platform in release $version"
-    exit 1
+    Wait-Exit; exit 1
   }
 }
 
@@ -235,3 +251,5 @@ Write-Host "  3. Stop AxonHub: stop.bat"
 Write-Host "  4. View logs: $BaseDir\axonhub.log (or logs\axonhub.log in config)"
 Write-Host "  5. Access web interface: http://localhost:$port"
 Write-Host "  6. Setup auto-start: setup.bat install-autostart"
+
+Wait-Exit
