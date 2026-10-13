@@ -4,6 +4,22 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# 脚本执行完毕后倒计时等待，便于查看输出（程序调用时自动跳过）
+function Wait-Exit {
+  if($env:AXONHUB_NO_WAIT -eq '1'){ return }
+  if([Console]::IsInputRedirected){ return }
+  for($i = 10; $i -ge 1; $i--){
+    Write-Host "`r窗口将在 $i 秒后自动关闭，按任意键保留窗口...  " -NoNewline
+    if([Console]::KeyAvailable){
+      [void][Console]::ReadKey($true)
+      Write-Host ''
+      Write-Host '窗口已保留：查看完输出后，请直接关闭本窗口。'
+      while($true){ Start-Sleep -Seconds 5 }
+    }
+    Start-Sleep -Seconds 1
+  }
+  Write-Host ''
+}
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 function Write-Info([string]$m){ Write-Host "[INFO] $m" -ForegroundColor Cyan }
@@ -43,13 +59,13 @@ function Stop-ByPid(){
     return $false
   }
   try {
-    $processId = Get-Content -Path $PidFile -ErrorAction Stop
+$processId = Get-Content -Path $PidFile -ErrorAction Stop
   } catch {
     Write-Warn 'Unable to read PID file'
     Remove-Item -Force $PidFile -ErrorAction SilentlyContinue
     return $false
   }
-  if(-not ($processId -match '^[0-9]+$')){
+if(-not ($processId -match '^[0-9]+$')){
     Write-Err "Invalid PID in file: $processId"
     Remove-Item -Force $PidFile -ErrorAction SilentlyContinue
     return $false
@@ -66,7 +82,7 @@ function Stop-ByPid(){
   $timeout = 10
   for($i=0; $i -lt $timeout; $i++){
     Start-Sleep -Seconds 1
-    if(-not (Get-Process -Id $processId -ErrorAction SilentlyContinue)){ break }
+if(-not (Get-Process -Id $processId -ErrorAction SilentlyContinue)){ break }
   }
   if(Get-Process -Id $processId -ErrorAction SilentlyContinue){
     Write-Warn 'Process did not stop gracefully, forcing termination...'
@@ -139,12 +155,12 @@ if($Force){
       Remove-Item -Force $PidFile -ErrorAction SilentlyContinue
     } else {
       Write-Err 'Failed to force-stop some processes'
-      exit 1
+      Wait-Exit; exit 1
     }
   } else {
     Write-Info 'No AxonHub processes found'
   }
-  exit 0
+  Wait-Exit; exit 0
 }
 
 Write-Info 'Stopping AxonHub...'
@@ -154,10 +170,12 @@ if(-not $stopped){ if(Stop-ByProcessName){ $stopped = $true } }
 if(-not $stopped){
   if(Check-Running){
     Write-Err 'Failed to stop all AxonHub processes'
-    exit 1
+    Wait-Exit; exit 1
   } else {
     Write-Info 'No AxonHub processes were running'
   }
 }
 Remove-Item -Force $PidFile -ErrorAction SilentlyContinue
 Write-Success 'AxonHub has been stopped'
+
+Wait-Exit
