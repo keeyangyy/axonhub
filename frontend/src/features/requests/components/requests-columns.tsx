@@ -43,6 +43,25 @@ export const DEFAULT_MOBILE_HIDDEN_COLUMN_IDS = [
 
 export const MODEL_ID_COLUMN = 'modelID' as const;
 
+// cacheHitRateColor returns the text color class for a cache hit rate, so the
+// tokens column and the read-cache column colour the rate consistently.
+export function cacheHitRateColor(hitRate: number): string {
+  if (hitRate >= 95) {
+    return 'font-medium text-green-600 dark:text-green-400';
+  }
+  if (hitRate >= 90) {
+    return 'font-medium text-blue-600 dark:text-blue-400';
+  }
+  if (hitRate >= 80) {
+    return '';
+  }
+  if (hitRate >= 50) {
+    return 'font-medium text-yellow-600 dark:text-yellow-400';
+  }
+
+  return 'font-medium text-red-600 dark:text-red-400';
+}
+
 export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnDef<Request>[] {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === 'zh' ? zhCN : enUS;
@@ -485,6 +504,8 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
         const completionTokens = usageLog.completionTokens || 0;
         const reasoningTokens = usageLog.completionReasoningTokens || 0;
         const totalTokens = promptTokens + completionTokens;
+        const cachedTokens = usageLog.promptCachedTokens || 0;
+        const hitRate = promptTokens > 0 ? (cachedTokens / promptTokens) * 100 : 0;
 
         return (
           <div className='space-y-0.5 text-xs'>
@@ -499,6 +520,11 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
             {reasoningTokens > 0 && (
               <div className='text-muted-foreground'>
                 {t('requests.columns.reasoning')}: {reasoningTokens.toLocaleString()}
+              </div>
+            )}
+            {cachedTokens > 0 && (
+              <div className={cacheHitRateColor(hitRate)}>
+                {t('requests.columns.cacheRate', { rate: hitRate.toFixed(1) })}
               </div>
             )}
           </div>
@@ -536,15 +562,7 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
 
         const hitRate = promptTokens > 0 ? (cachedTokens / promptTokens) * 100 : 0;
 
-        const hitRateColor = hitRate >= 95
-          ? 'font-medium text-green-600 dark:text-green-400'
-          : hitRate >= 90
-            ? 'font-medium text-blue-600 dark:text-blue-400'
-            : hitRate >= 80
-              ? ''
-              : hitRate >= 50
-                ? 'font-medium text-yellow-600 dark:text-yellow-400'
-                : 'font-medium text-red-600 dark:text-red-400';
+        const hitRateColor = cacheHitRateColor(hitRate);
 
         return (
           <div className='text-xs'>
