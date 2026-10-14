@@ -62,12 +62,13 @@ export function cacheHitRateColor(hitRate: number): string {
   return 'font-medium text-red-600 dark:text-red-400';
 }
 
-// Cache-rate display for the tokens column. The reasoning count and the cache
-// hit rate share one row, each part renders only when its own tokens are
-// non-zero, and the rate is the cached share of the prompt (0 without prompt
-// tokens). Top-level so tests can execute the display logic without React.
+// Cache-rate display for the tokens column. The input line carries the cache
+// hit rate and the output line carries the reasoning count, so each metric
+// sits on the line of the tokens it qualifies; each renders only when its own
+// tokens are non-zero, and the rate is the cached share of the prompt (0
+// without prompt tokens). Top-level so tests can execute the display logic
+// without React.
 export interface TokensColumnCacheDisplay {
-  showSharedRow: boolean;
   showReasoning: boolean;
   showCacheRate: boolean;
   cacheRate: string;
@@ -79,7 +80,6 @@ export function tokensColumnCacheDisplay(
   reasoningTokens: number
 ): TokensColumnCacheDisplay {
   return {
-    showSharedRow: reasoningTokens > 0 || cachedTokens > 0,
     showReasoning: reasoningTokens > 0,
     showCacheRate: cachedTokens > 0,
     cacheRate: (promptTokens > 0 ? (cachedTokens / promptTokens) * 100 : 0).toFixed(1),
@@ -538,23 +538,25 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
               {(totalTokens || 0).toLocaleString()}
             </div>
             <div className='text-muted-foreground'>
-              {t('requests.columns.input')}: {promptTokens.toLocaleString()} | {t('requests.columns.output')}:{' '}
-              {completionTokens.toLocaleString()}
-            </div>
-            {cacheDisplay.showSharedRow && (
-              <div className='text-muted-foreground flex flex-wrap items-center gap-x-1.5'>
-                {cacheDisplay.showReasoning && (
-                  <span>
-                    {t('requests.columns.reasoning')}: {reasoningTokens.toLocaleString()}
-                  </span>
-                )}
-                {cacheDisplay.showCacheRate && (
+              {t('requests.columns.input')}: {promptTokens.toLocaleString()}
+              {cacheDisplay.showCacheRate && (
+                <>
+                  {' | '}
                   <span className={cacheHitRateColor(Number(cacheDisplay.cacheRate))}>
                     {t('requests.columns.cacheRate', { rate: cacheDisplay.cacheRate })}
                   </span>
-                )}
-              </div>
-            )}
+                </>
+              )}
+            </div>
+            <div className='text-muted-foreground'>
+              {t('requests.columns.output')}: {completionTokens.toLocaleString()}
+              {cacheDisplay.showReasoning && (
+                <>
+                  {' | '}
+                  {t('requests.columns.reasoning')}: {reasoningTokens.toLocaleString()}
+                </>
+              )}
+            </div>
           </div>
         );
       },
