@@ -21,6 +21,21 @@ async function loadHelper() {
   return helper;
 }
 
+// Execute the tokens column's cache-rate display instead of matching its source
+// text, so a wrong rate, a wrong rounding rule, or a wrong visibility rule
+// fails the test rather than passing silently.
+const displayNode = ast.statements.find(
+  (node) => ts.isFunctionDeclaration(node) && node.name?.text === 'tokensColumnCacheDisplay'
+);
+assert.ok(displayNode, 'tokensColumnCacheDisplay must stay a top-level function in requests-columns.tsx');
+
+const { outputText } = ts.transpileModule(`export ${displayNode.getText(ast).replace(/^export\s+/, '')}`, {
+  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2023 },
+});
+const { tokensColumnCacheDisplay } = await import(
+  `data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`
+);
+
 test('cacheHitRateColor bands the hit rate from green down to red', async () => {
   const { cacheHitRateColor } = await loadHelper();
 
@@ -33,12 +48,20 @@ test('cacheHitRateColor bands the hit rate from green down to red', async () => 
   assert.match(cacheHitRateColor(0), /red/, '0 is red');
 });
 
-test('the tokens column shows a coloured cache rate line only when the cache was hit', () => {
+test('the tokens cell renders the rate this helper returns', () => {
+  assert.match(
+    source,
+    /tokensColumnCacheDisplay\(promptTokens, cachedTokens, reasoningTokens\)/,
+    'the cell must consume the helper instead of recomputing the rate inline'
+  );
+});
+
+test('the tokens column colours the cache rate and shows it only when the cache was hit', () => {
   const tokensColumn = source.slice(source.indexOf("id: 'tokens'"), source.indexOf("id: 'readCache'"));
 
-  assert.match(tokensColumn, /cachedTokens > 0 &&/, 'the cache rate is conditional on a non-zero cache read');
+  assert.match(tokensColumn, /cacheDisplay\.showCacheRate &&/, 'the cache rate is conditional on a non-zero cache read');
   assert.match(tokensColumn, /requests\.columns\.cacheRate/, 'the cache rate uses the cacheRate label');
-  assert.match(tokensColumn, /cacheHitRateColor\(hitRate\)/, 'the cache rate is coloured by the shared helper');
+  assert.match(tokensColumn, /cacheHitRateColor\(/, 'the cache rate is coloured by the shared helper');
   assert.match(tokensColumn, /promptCachedTokens \|\| 0/, 'the cache rate reads promptCachedTokens');
 });
 
@@ -49,13 +72,13 @@ test('the cache rate shares one line with the reasoning count', () => {
   // the row must render when either value is present.
   assert.match(
     tokensColumn,
-    /\(reasoningTokens > 0 \|\| cachedTokens > 0\) &&/,
+    /cacheDisplay\.showSharedRow &&/,
     'the shared row renders when either reasoning or cache tokens exist'
   );
   assert.match(tokensColumn, /flex flex-wrap items-center/, 'the shared row lays its children out on one line');
 
   const sharedRow = tokensColumn.slice(
-    tokensColumn.indexOf('(reasoningTokens > 0 || cachedTokens > 0) &&'),
+    tokensColumn.indexOf('cacheDisplay.showSharedRow &&'),
     tokensColumn.indexOf("id: 'readCache'")
   );
   assert.match(sharedRow, /requests\.columns\.reasoning/, 'reasoning renders inside the shared row');
@@ -72,4 +95,45 @@ test('the read-cache column reuses the shared helper instead of a private ladder
 
   assert.match(readCacheColumn, /cacheHitRateColor\(hitRate\)/, 'read-cache must reuse the shared helper');
   assert.doesNotMatch(readCacheColumn, /hitRate >= 95\s*\n?\s*\?/, 'the private colour ladder must be gone');
+});
+
+test('a cache read shows the cached share of the prompt', () => {
+  const display = tokensColumnCacheDisplay(1000, 250, 0);
+
+  assert.equal(display.cacheRate, '25.0');
+  assert.equal(display.showCacheRate, true);
+  assert.equal(display.showReasoning, false);
+  assert.equal(display.showSharedRow, true);
+});
+
+test('no cache read hides the rate even when reasoning tokens exist', () => {
+  const display = tokensColumnCacheDisplay(1000, 0, 40);
+
+  assert.equal(display.showCacheRate, false);
+  assert.equal(display.showReasoning, true);
+  assert.equal(display.showSharedRow, true);
+});
+
+test('cache hits and reasoning tokens share the row', () => {
+  const display = tokensColumnCacheDisplay(1000, 999, 7);
+
+  assert.equal(display.cacheRate, '99.9');
+  assert.equal(display.showCacheRate, true);
+  assert.equal(display.showReasoning, true);
+  assert.equal(display.showSharedRow, true);
+});
+
+test('zero prompt tokens report a zero rate instead of dividing by zero', () => {
+  const display = tokensColumnCacheDisplay(0, 120, 0);
+
+  assert.equal(display.cacheRate, '0.0');
+  assert.equal(display.showCacheRate, true);
+});
+
+test('neither reasoning nor cache tokens keep the shared row hidden', () => {
+  const display = tokensColumnCacheDisplay(500, 0, 0);
+
+  assert.equal(display.showSharedRow, false);
+  assert.equal(display.showReasoning, false);
+  assert.equal(display.showCacheRate, false);
 });
