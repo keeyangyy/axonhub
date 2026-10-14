@@ -169,13 +169,12 @@ func getClientIP(req *http.Request) string {
 // 4xx status codes are generally not retryable except for 429 (Too Many Requests).
 // 5xx status codes are typically retryable.
 func IsHTTPStatusCodeRetryable(statusCode int) bool {
-	// fork: 429 is NOT retryable by default. Upstream marks it retryable because
-	// it usually means this channel is being throttled, but a 429 frequently just
-	// means the upstream endpoint is busy — retrying the same channel can win the
-	// race there. Channels opt 429 back in through
-	// ChannelSettings.RetryableStatusCodes (see orchestrator.CanRetry).
+	if statusCode == http.StatusTooManyRequests {
+		return true // 429 is retryable (rate limiting)
+	}
+
 	if statusCode >= 400 && statusCode < 500 {
-		return false // 4xx errors (429 included) are not retryable by default
+		return false // Other 4xx errors are not retryable
 	}
 
 	if statusCode >= 500 {
