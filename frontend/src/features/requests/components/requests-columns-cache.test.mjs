@@ -36,10 +36,35 @@ test('cacheHitRateColor bands the hit rate from green down to red', async () => 
 test('the tokens column shows a coloured cache rate line only when the cache was hit', () => {
   const tokensColumn = source.slice(source.indexOf("id: 'tokens'"), source.indexOf("id: 'readCache'"));
 
-  assert.match(tokensColumn, /cachedTokens > 0 &&/, 'the cache line is conditional on a non-zero cache read');
-  assert.match(tokensColumn, /requests\.columns\.cacheRate/, 'the cache line uses the cacheRate label');
-  assert.match(tokensColumn, /cacheHitRateColor\(hitRate\)/, 'the cache line is coloured by the shared helper');
-  assert.match(tokensColumn, /promptCachedTokens \|\| 0/, 'the cache line reads promptCachedTokens');
+  assert.match(tokensColumn, /cachedTokens > 0 &&/, 'the cache rate is conditional on a non-zero cache read');
+  assert.match(tokensColumn, /requests\.columns\.cacheRate/, 'the cache rate uses the cacheRate label');
+  assert.match(tokensColumn, /cacheHitRateColor\(hitRate\)/, 'the cache rate is coloured by the shared helper');
+  assert.match(tokensColumn, /promptCachedTokens \|\| 0/, 'the cache rate reads promptCachedTokens');
+});
+
+test('the cache rate shares one line with the reasoning count', () => {
+  const tokensColumn = source.slice(source.indexOf("id: 'tokens'"), source.indexOf("id: 'readCache'"));
+
+  // The reasoning count and the cache rate must live in the same flex row, and
+  // the row must render when either value is present.
+  assert.match(
+    tokensColumn,
+    /\(reasoningTokens > 0 \|\| cachedTokens > 0\) &&/,
+    'the shared row renders when either reasoning or cache tokens exist'
+  );
+  assert.match(tokensColumn, /flex flex-wrap items-center/, 'the shared row lays its children out on one line');
+
+  const sharedRow = tokensColumn.slice(
+    tokensColumn.indexOf('(reasoningTokens > 0 || cachedTokens > 0) &&'),
+    tokensColumn.indexOf("id: 'readCache'")
+  );
+  assert.match(sharedRow, /requests\.columns\.reasoning/, 'reasoning renders inside the shared row');
+  assert.match(sharedRow, /requests\.columns\.cacheRate/, 'cache rate renders inside the shared row');
+  assert.equal(
+    (tokensColumn.match(/requests\.columns\.cacheRate/g) ?? []).length,
+    1,
+    'the cache rate must not also render on its own separate line'
+  );
 });
 
 test('the read-cache column reuses the shared helper instead of a private ladder', () => {
