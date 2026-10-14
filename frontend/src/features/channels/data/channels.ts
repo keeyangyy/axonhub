@@ -138,6 +138,7 @@ const CREATE_CHANNEL_MUTATION = `
           pattern
           regex
         }
+        maxSingleChannelRetries
         modelProtocols {
           model
           apiFormats
@@ -232,6 +233,7 @@ const DUPLICATE_CHANNEL_MUTATION = `
           pattern
           regex
         }
+        maxSingleChannelRetries
         modelProtocols {
           model
           apiFormats
@@ -326,6 +328,7 @@ const BULK_CREATE_CHANNELS_MUTATION = `
           pattern
           regex
         }
+        maxSingleChannelRetries
         modelProtocols {
           model
           apiFormats
@@ -420,6 +423,7 @@ const UPDATE_CHANNEL_MUTATION = `
           pattern
           regex
         }
+        maxSingleChannelRetries
         modelProtocols {
           model
           apiFormats
@@ -639,6 +643,7 @@ const BULK_IMPORT_CHANNELS_MUTATION = `
             pattern
             regex
           }
+          maxSingleChannelRetries
           modelProtocols {
             model
             apiFormats
@@ -880,6 +885,7 @@ const BULK_UPDATE_CHANNEL_ORDERING_MUTATION = `
             pattern
             regex
           }
+          maxSingleChannelRetries
           modelProtocols {
             model
             apiFormats
@@ -1144,6 +1150,7 @@ const CHANNEL_QUERY_FULL_NODE_SELECTION = `
               pattern
               regex
             }
+            maxSingleChannelRetries
             modelProtocols {
               model
               apiFormats

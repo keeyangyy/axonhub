@@ -361,6 +361,7 @@ export const channelSettingsSchema = z.object({
   rateLimit: channelRateLimitSchema.optional().nullable(),
   retryableStatusCodes: z.array(z.number().int().min(400).max(599)).optional().nullable(),
   retryableErrorPatterns: z.array(retryableErrorPatternSchema).optional().nullable(),
+  maxSingleChannelRetries: z.number().int().min(0).max(65535).optional().nullable(),
   modelProtocols: z.array(modelProtocolSchema).optional().nullable(),
   providerQuota: channelProviderQuotaSettingsSchema.optional().nullable(),
   apiKeyStrategy: z.enum(['sticky', 'random', 'round_robin', 'round_robin_success', 'priority', 'fixed']).optional().nullable(),
