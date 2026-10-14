@@ -517,14 +517,18 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
               {t('requests.columns.input')}: {promptTokens.toLocaleString()} | {t('requests.columns.output')}:{' '}
               {completionTokens.toLocaleString()}
             </div>
-            {reasoningTokens > 0 && (
-              <div className='text-muted-foreground'>
-                {t('requests.columns.reasoning')}: {reasoningTokens.toLocaleString()}
-              </div>
-            )}
-            {cachedTokens > 0 && (
-              <div className={cacheHitRateColor(hitRate)}>
-                {t('requests.columns.cacheRate', { rate: hitRate.toFixed(1) })}
+            {(reasoningTokens > 0 || cachedTokens > 0) && (
+              <div className='text-muted-foreground flex flex-wrap items-center gap-x-1.5'>
+                {reasoningTokens > 0 && (
+                  <span>
+                    {t('requests.columns.reasoning')}: {reasoningTokens.toLocaleString()}
+                  </span>
+                )}
+                {cachedTokens > 0 && (
+                  <span className={cacheHitRateColor(hitRate)}>
+                    {t('requests.columns.cacheRate', { rate: hitRate.toFixed(1) })}
+                  </span>
+                )}
               </div>
             )}
           </div>
