@@ -7,7 +7,7 @@ import { Ban, FileText } from 'lucide-react';
 import { zhCN, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { extractNumberID, formatUserName } from '@/lib/utils';
+import { cn, extractNumberID, formatUserName } from '@/lib/utils';
 import { formatDuration } from '@/utils/format-duration';
 import { usePaginationSearch } from '@/hooks/use-pagination-search';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -18,8 +18,10 @@ import { DataTableColumnHeader } from '@/components/data-table-column-header';
 import { useGeneralSettings, useSecuritySettings, useUpdateSecuritySettings } from '@/features/system/data/system';
 import { useRequestPermissions } from '../../../hooks/useRequestPermissions';
 import { Request } from '../data/schema';
+import { type MetricColorKey, metricColorTextClass } from '../utils/metric-colors';
 import { calculateTokensPerSecond, calculateTotalTimeTokensPerSecond, getTokensPerSecondValue, getTotalTimeTokensPerSecondValue } from '../utils/tokens-per-second';
 import { getRequestModelAuditTooltip, getUpstreamModelAudit } from '../utils/upstream-model-audit';
+import { useMetricColorSettings } from '../utils/use-metric-colors';
 import { getStatusColor } from './help';
 
 interface UseRequestsColumnsOptions {
@@ -42,25 +44,6 @@ export const DEFAULT_MOBILE_HIDDEN_COLUMN_IDS = [
 ];
 
 export const MODEL_ID_COLUMN = 'modelID' as const;
-
-// cacheHitRateColor returns the text color class for a cache hit rate, so the
-// tokens column and the read-cache column colour the rate consistently.
-export function cacheHitRateColor(hitRate: number): string {
-  if (hitRate >= 95) {
-    return 'font-medium text-green-600 dark:text-green-400';
-  }
-  if (hitRate >= 90) {
-    return 'font-medium text-blue-600 dark:text-blue-400';
-  }
-  if (hitRate >= 80) {
-    return '';
-  }
-  if (hitRate >= 50) {
-    return 'font-medium text-yellow-600 dark:text-yellow-400';
-  }
-
-  return 'font-medium text-red-600 dark:text-red-400';
-}
 
 // Cache-rate display for the tokens column. The input line carries the cache
 // hit rate and the output line carries the reasoning count, so each metric
@@ -88,6 +71,15 @@ export function tokensColumnCacheDisplay(
 
 export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnDef<Request>[] {
   const { t, i18n } = useTranslation();
+  const metricColors = useMetricColorSettings();
+  // Colour class for a metric value. `base` keeps the caller's own classes
+  // (font weight / mono) while the tier only contributes the tone, so a
+  // switched-off metric or the neutral tier keeps the default look.
+  const metricTone = (key: MetricColorKey, value: number | null | undefined, base?: string) => {
+    const tone = metricColorTextClass(metricColors, key, value);
+
+    return base ? cn(base, tone) : tone;
+  };
   const locale = i18n.language === 'zh' ? zhCN : enUS;
   const permissions = useRequestPermissions();
   const { hasSystemScope } = usePermissions();
@@ -542,7 +534,7 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
               {cacheDisplay.showCacheRate && (
                 <>
                   {' | '}
-                  <span className={cacheHitRateColor(Number(cacheDisplay.cacheRate))}>
+                  <span className={metricTone('cacheHitRate', Number(cacheDisplay.cacheRate), 'font-medium')}>
                     {t('requests.columns.cacheRate', { rate: cacheDisplay.cacheRate })}
                   </span>
                 </>
@@ -592,7 +584,7 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
 
         const hitRate = promptTokens > 0 ? (cachedTokens / promptTokens) * 100 : 0;
 
-        const hitRateColor = cacheHitRateColor(hitRate);
+        const hitRateColor = metricTone('cacheHitRate', hitRate, 'font-medium');
 
         return (
           <div className='text-xs'>
@@ -706,17 +698,8 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
           return <span className='font-mono text-xs'>{t('requests.duration.total', { duration: formatDuration(request.metricsLatencyMs) })}</span>;
         }
 
-        const firstTokenMs = request.metricsFirstTokenLatencyMs ?? 0;
-        const firstTokenColor =
-          firstTokenMs <= 3000
-            ? 'text-green-600 dark:text-green-400'
-            : firstTokenMs <= 5000
-              ? 'text-blue-600 dark:text-blue-400'
-              : firstTokenMs <= 10000
-                ? ''
-                : firstTokenMs <= 20000
-                  ? 'text-yellow-600 dark:text-yellow-400'
-                  : 'text-red-600 dark:text-red-400';
+        // The palette stores boundaries in seconds; the metric is milliseconds.
+        const firstTokenColor = metricTone('firstTokenLatency', (request.metricsFirstTokenLatencyMs ?? 0) / 1000);
 
         return (
           <div className='min-w-[128px] font-mono text-xs'>
@@ -737,28 +720,12 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
         const tps = getTokensPerSecondValue(row.original) ?? 0;
         // Rates above 500 are treated as measurement artifacts (tiny effective
         // latency from TTFT subtraction can inflate the rate) — show no color.
-        const tpsColor =
-          tps > 500
-            ? ''
-            : tps >= 60
-              ? 'font-mono text-xs text-green-600 dark:text-green-400'
-              : tps >= 40
-                ? 'font-mono text-xs text-blue-600 dark:text-blue-400'
-                : tps >= 20
-                  ? ''
-                  : tps >= 10
-                    ? 'font-mono text-xs text-yellow-600 dark:text-yellow-400'
-                    : 'font-mono text-xs text-red-600 dark:text-red-400';
+        const tpsColor = tps > 500 ? '' : metricTone('throughput', tps, 'font-mono text-xs');
         const totalTpsValue = getTotalTimeTokensPerSecondValue(row.original);
         const totalTps = calculateTotalTimeTokensPerSecond(row.original);
-        // Total rate includes TTFT, so its green threshold is lower than the
-        // generation-rate column above (50 vs 60).
-        const totalTpsColor =
-          totalTpsValue != null && totalTpsValue >= 50
-            ? 'text-green-600 dark:text-green-400'
-            : totalTpsValue != null && totalTpsValue < 10
-              ? 'text-red-600 dark:text-red-400'
-              : 'text-muted-foreground';
+        // The total rate keeps the muted tone when the metric is off or neutral,
+        // which preserves the previous secondary-line look.
+        const totalTpsColor = metricTone('throughputIncludingFirstToken', totalTpsValue) || 'text-muted-foreground';
         return (
           <div className='font-mono text-xs'>
             <div className={tpsColor}>{calculateTokensPerSecond(row.original)}</div>
