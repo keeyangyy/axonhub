@@ -45,12 +45,12 @@ func isRetryableErrorForChannel(err error, ch *biz.Channel) bool {
 }
 
 // channelRetriesOn429 reports whether the channel explicitly opts 429 into
-// same-channel retries through ChannelSettings.RetryableStatusCodes.
+// same-channel retries by listing it in ChannelSettings.RetryableStatusCodes.
 //
-// fork: upstream always skips same-channel retries on 429 (see CanRetry). A
-// channel that lists 429 here is saying "this 429 is the endpoint being busy,
-// not me being throttled" — retrying the same channel is then worthwhile, so
-// CanRetry lets the error fall through to isRetryableErrorForChannel.
+// 429 normally forces a channel switch: the retry loop reads it as "this channel
+// is being rate-limited", so retrying it would only burn an attempt. A channel
+// that lists 429 is saying the code means "the upstream endpoint is busy"
+// instead, where a same-channel retry can win the race.
 func channelRetriesOn429(ch *biz.Channel) bool {
 	if ch == nil || ch.Channel == nil || ch.Settings == nil {
 		return false

@@ -108,7 +108,7 @@ Ensure-Dirs $BaseDir
 # Already running?
 if(Test-Path $PidFile){
   try {
-$processId = Get-Content -Path $PidFile -ErrorAction Stop
+    $processId = Get-Content -Path $PidFile -ErrorAction Stop
     # A live PID alone does not prove it is our process: Windows recycles PIDs, so a PID
     # left over from a previous run (typically after a reboot) can belong to anything.
     if($processId -and (Get-Process -Id $processId -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -eq 'axonhub' })){

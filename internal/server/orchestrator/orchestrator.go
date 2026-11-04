@@ -5,6 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/tidwall/gjson"
+
 	"github.com/looplj/axonhub/internal/authz"
 	"github.com/looplj/axonhub/internal/contexts"
 	"github.com/looplj/axonhub/internal/log"
@@ -166,13 +168,26 @@ func (processor *ChatCompletionOrchestrator) WithProxy(proxy *httpclient.ProxyCo
 	return &c
 }
 
+// ResponseRoute identifies the committed upstream attempt without retaining
+// mutable persistence state or exposing provider credentials.
+type ResponseRoute struct {
+	ChannelID int
+	Model     string
+	APIFormat string
+}
+
 type ChatCompletionResult struct {
+	Route                         ResponseRoute
 	ChatCompletion                *httpclient.Response
 	ChatCompletionStream          streams.Stream[*httpclient.StreamEvent]
 	CodexResponseHeadersSupported bool
 }
 
 func (processor *ChatCompletionOrchestrator) Process(ctx context.Context, request *httpclient.Request) (ChatCompletionResult, error) {
+	lifecycleOwner, executionCtx := newStreamLifecycle(ctx)
+	ctx = executionCtx
+
+	var preparedResponsesBody []byte
 	var continuation *responsesContinuation
 	if shared.IsResponsesAPI(ctx) && request != nil && processor.responsesSessions != nil {
 		continuation = newResponsesContinuation(processor.responsesSessions, request.Body)
@@ -335,6 +350,8 @@ func (processor *ChatCompletionOrchestrator) Process(ctx context.Context, reques
 		captureRawProviderResponse(outbound, processor.SystemService),
 		captureRawProviderStream(outbound, processor.SystemService),
 		captureResponsesProvider(outbound),
+		// Run first on raw responses (reverse order), before capture fan-out.
+		closeCompletedAnthropicStream(outbound),
 	)
 
 	pipelineOpts = append(pipelineOpts, pipeline.WithMiddlewares(middlewares...))
@@ -347,6 +364,7 @@ func (processor *ChatCompletionOrchestrator) Process(ctx context.Context, reques
 
 	result, err := pipe.Process(ctx, request)
 	if err != nil {
+		lifecycleOwner.Close()
 		persistCtx, cancel := xcontext.DetachWithTimeout(ctx, time.Second*10)
 		defer cancel()
 
@@ -382,13 +400,30 @@ func (processor *ChatCompletionOrchestrator) Process(ctx context.Context, reques
 		return ChatCompletionResult{}, err
 	}
 
+	// Pipeline retries finish before the response is returned. Snapshot the final
+	// route so downstream display estimates cannot share calibration across routes.
+	var route ResponseRoute
+	if channel := outbound.GetCurrentChannel(); channel != nil {
+		route.ChannelID = channel.ID
+	}
+	if state.RawProviderRequest != nil {
+		route.Model = gjson.GetBytes(state.RawProviderRequest.Body, "model").String()
+		route.APIFormat = state.RawProviderRequest.APIFormat
+	}
+	if route.Model == "" && state.RequestExec != nil {
+		route.Model = state.RequestExec.ModelID
+	}
+
 	// Return result based on stream type
 	if result.Stream {
 		if continuation != nil {
-			result.EventStream = httpclient.WithResponseHeaders(&responsesAcceptedStream{Stream: result.EventStream, ctx: ctx, continuation: continuation}, httpclient.GetResponseHeaders(result.EventStream))
+			source := result.EventStream
+			accepted := &responsesAcceptedStream{Stream: source, ctx: ctx, continuation: continuation}
+			result.EventStream = httpclient.WithResponseHeaders(preserveDeliveryCapabilities(source, accepted), httpclient.GetResponseHeaders(source))
 			continuation = nil
 		}
 		return ChatCompletionResult{
+			Route:                         route,
 			ChatCompletion:                nil,
 			ChatCompletionStream:          result.EventStream,
 			CodexResponseHeadersSupported: outbound.SupportsCodexResponseHeaders(),
@@ -397,8 +432,15 @@ func (processor *ChatCompletionOrchestrator) Process(ctx context.Context, reques
 	if continuation != nil && result.Response != nil {
 		continuation.accept(ctx)
 	}
+	lifecycleOwner.Close()
+	if continuation == nil || result.Response == nil {
+		if preparedResponsesBody != nil && result.Response != nil {
+			processor.responsesSessions.record(ctx, preparedResponsesBody, result.Response.Body)
+		}
+	}
 
 	return ChatCompletionResult{
+		Route:                         route,
 		ChatCompletion:                result.Response,
 		ChatCompletionStream:          nil,
 		CodexResponseHeadersSupported: outbound.SupportsCodexResponseHeaders(),
