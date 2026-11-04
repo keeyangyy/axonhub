@@ -159,5 +159,20 @@
   "requests.tooltips.upstreamModelRequestFailed": "Request did not succeed; model consistency is not a successful result. See the failure reason",
   "requests.tooltips.upstreamModelPartial": "Only some executions can be audited: {{compared}} compared, {{unknown}} unknown",
   "requests.detail.routedModel": "Channel model",
-  "requests.detail.upstreamModels": "Upstream-reported model"
+  "requests.detail.upstreamModels": "Upstream-reported model",
+  "requests.metricColors.title": "Metric colours",
+  "requests.metricColors.description": "Each dashed line ties a value to the boundary it controls. The last value has no upper limit, so the band stretches with it.",
+  "requests.metricColors.open": "Metric colours",
+  "requests.metricColors.reset": "Reset to defaults",
+  "requests.metricColors.localOnlyHint": "Changes apply immediately and stay in this browser",
+  "requests.metricColors.boundaryLabel": "Boundary {{index}}",
+  "requests.metricColors.metrics.cacheHitRate": "Cache hit rate",
+  "requests.metricColors.metrics.firstTokenLatency": "First token latency",
+  "requests.metricColors.metrics.throughput": "Throughput (excluding first token)",
+  "requests.metricColors.metrics.throughputIncludingFirstToken": "Total throughput (including first token)",
+  "requests.metricColors.tiers.red": "Red",
+  "requests.metricColors.tiers.yellow": "Yellow",
+  "requests.metricColors.tiers.neutral": "Default",
+  "requests.metricColors.tiers.blue": "Blue",
+  "requests.metricColors.tiers.green": "Green"
 }

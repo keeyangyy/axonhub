@@ -3,23 +3,11 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
 
-// Pin the tokens-column cache line and the shared hit-rate colour helper.
+// The colour of a value now comes from the configurable palette
+// (utils/metric-colors.ts); this file keeps pinning the tokens-column wiring and
+// the cache-rate display helper so a refactor cannot silently drop them.
 const source = readFileSync(new URL('./requests-columns.tsx', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('requests-columns.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-
-let helper;
-async function loadHelper() {
-  if (helper) return helper;
-
-  const node = ast.statements.find((n) => ts.isFunctionDeclaration(n) && n.name?.text === 'cacheHitRateColor');
-  assert.ok(node, 'cacheHitRateColor must stay exported from requests-columns.tsx');
-
-  const { outputText } = ts.transpileModule(`export ${node.getText(ast).replace(/^export\s+/, '')}`, {
-    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2023 },
-  });
-  helper = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
-  return helper;
-}
 
 // Execute the tokens column's cache-rate display instead of matching its source
 // text, so a wrong rate, a wrong rounding rule, or a wrong visibility rule
@@ -36,18 +24,6 @@ const { tokensColumnCacheDisplay } = await import(
   `data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`
 );
 
-test('cacheHitRateColor bands the hit rate from green down to red', async () => {
-  const { cacheHitRateColor } = await loadHelper();
-
-  assert.match(cacheHitRateColor(100), /green/, '>=95 is green');
-  assert.match(cacheHitRateColor(95), /green/, 'the 95 boundary is green');
-  assert.match(cacheHitRateColor(90), /blue/, '90..95 is blue');
-  assert.equal(cacheHitRateColor(80), '', '80..90 keeps the default colour');
-  assert.match(cacheHitRateColor(50), /yellow/, '50..80 is yellow');
-  assert.match(cacheHitRateColor(49), /red/, 'below 50 is red');
-  assert.match(cacheHitRateColor(0), /red/, '0 is red');
-});
-
 test('the tokens cell renders the rate this helper returns', () => {
   assert.match(
     source,
@@ -56,12 +32,12 @@ test('the tokens cell renders the rate this helper returns', () => {
   );
 });
 
-test('the tokens column colours the cache rate and shows it only when the cache was hit', () => {
+test('the tokens column colours the cache rate through the shared palette', () => {
   const tokensColumn = source.slice(source.indexOf("id: 'tokens'"), source.indexOf("id: 'readCache'"));
 
   assert.match(tokensColumn, /cacheDisplay\.showCacheRate &&/, 'the cache rate is conditional on a non-zero cache read');
   assert.match(tokensColumn, /requests\.columns\.cacheRate/, 'the cache rate uses the cacheRate label');
-  assert.match(tokensColumn, /cacheHitRateColor\(/, 'the cache rate is coloured by the shared helper');
+  assert.match(tokensColumn, /metricTone\('cacheHitRate'/, 'the cache rate is coloured by the configurable palette');
   assert.match(tokensColumn, /promptCachedTokens \|\| 0/, 'the cache rate reads promptCachedTokens');
 });
 
@@ -94,11 +70,11 @@ test('the cache rate rides the input line and the reasoning count the output lin
   );
 });
 
-test('the read-cache column reuses the shared helper instead of a private ladder', () => {
+test('the read-cache column reads the same palette entry as the tokens column', () => {
   const readCacheColumn = source.slice(source.indexOf("id: 'readCache'"), source.indexOf("id: 'writeCache'"));
 
-  assert.match(readCacheColumn, /cacheHitRateColor\(hitRate\)/, 'read-cache must reuse the shared helper');
-  assert.doesNotMatch(readCacheColumn, /hitRate >= 95\s*\n?\s*\?/, 'the private colour ladder must be gone');
+  assert.match(readCacheColumn, /metricTone\('cacheHitRate', hitRate/, 'read-cache must use the shared palette');
+  assert.doesNotMatch(readCacheColumn, /hitRate >= 95\s*\n?\s*\?/, 'the private colour ladder must stay gone');
 });
 
 test('a cache read shows the cached share of the prompt', () => {
