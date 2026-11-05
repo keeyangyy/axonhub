@@ -3,108 +3,25 @@
 # AxonHub - All-in-one AI Development Platform
 ### Use any SDK. Access any model. Zero code changes.
 
-<a href="https://trendshift.io/repositories/16225" target="_blank"><img src="https://trendshift.io/api/badge/repositories/16225" alt="looplj%2Faxonhub | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-
 </div>
 
 <div align="center">
 
-[![Test Status](https://github.com/looplj/axonhub/actions/workflows/test.yml/badge.svg)](https://github.com/looplj/axonhub/actions/workflows/test.yml)
-[![Lint Status](https://github.com/looplj/axonhub/actions/workflows/lint.yml/badge.svg)](https://github.com/looplj/axonhub/actions/workflows/lint.yml)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/looplj/axonhub?logo=go&logoColor=white)](https://golang.org/)
+[![Test Status](https://github.com/keeyangyy/axonhub/actions/workflows/test.yml/badge.svg)](https://github.com/keeyangyy/axonhub/actions/workflows/test.yml)
+[![Lint Status](https://github.com/keeyangyy/axonhub/actions/workflows/lint.yml/badge.svg)](https://github.com/keeyangyy/axonhub/actions/workflows/lint.yml)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/keeyangyy/axonhub?logo=go&logoColor=white)](https://golang.org/)
 [![Docker Ready](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)](https://docker.com)
-[![Greptile: The War on Bugs](https://www.greptile.com/badge.svg)](https://www.greptile.com/?utm_source=oss_badge&utm_medium=readme&utm_campaign=greptile_for_open_source)
 
-[English](README.en-US.md) | [中文](README.md) | [日本語](README.ja-JP.md)
-
-</div>
-
----
-
-> 🚀 **Check out my new project [Reveric](https://lj.s.gy/LDfOjx)**: An Agent Native creative workspace—from novels and screenplays to automatic video generation and editing, with agents involved throughout the creative process.
-
-## ❤️ Sponsor
-
-<div align="center">
-
-<table width="100%">
-  <tr>
-    <td width="100%" align="center" valign="top">
-      <a href="https://apikey.fun/register?aff=axonhub" target="_blank">
-        <img src="docs/sponsors/apikey-fun.png" alt="APIKEY.FUN" height="50"/>
-        <br/>
-        <strong>APIKEY.FUN</strong>
-      </a>
-      <div align="center">
-        <a href="https://apikey.fun/register?aff=axonhub" target="_blank">
-          <img src="docs/sponsors/api-key.fun.banner.png" alt="APIKEY.FUN banner" width="100%"/>
-        </a>
-      </div>
-      <div align="left">
-        APIKEY.FUN is a professional enterprise-grade AI API relay service committed to providing enterprises and individual developers with stable, efficient, and cost-effective access to AI model APIs.<br/>
-        The platform supports popular models including Claude, OpenAI, and Gemini, with prices as low as 7% of the official price.<br/>
-        AxonHub users who <a href="https://apikey.fun/register?aff=axonhub" target="_blank">register through the exclusive link</a> can enjoy a permanent discount of up to 5% on recharges.
-      </div>
-    </td>
-  </tr>
-</table>
+[English](README.en-US.md) | [中文](README.md)
 
 </div>
 
-<br/>
-
-<table border="1" cellspacing="0" cellpadding="16">
-  <thead>
-    <tr>
-      <th align="center" width="220">Sponsor</th>
-      <th align="left">Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td align="center" valign="middle">
-        <a href="https://lj.s.gy/8HNo22" target="_blank">
-          <img src="https://www-static.qbox.me/_next/static/media/logo.0fc18feaa621d2068a7180631f742256.jpg" alt="Qiniu Cloud AI" height="90"/>
-          <br/>
-          <strong>Qiniu Cloud AI</strong>
-        </a>
-      </td>
-      <td valign="middle">
-        Qiniu Cloud AI is an enterprise-grade LLM MaaS platform operated by Qiniu Cloud (02567.HK), providing one-stop access to 150+ mainstream models worldwide. It supports major model provider protocols and text, image, audio, video, file processing, and other multimodal capabilities, serving more than 1.69 million enterprises and developers. As an exclusive benefit for AxonHub users, <a href="https://lj.s.gy/8HNo22" target="_blank">register through this link</a> to receive 12 million free tokens for enterprise users or 3 million free tokens for developers.
-      </td>
-    </tr>
-    <tr>
-      <td align="center" valign="middle">
-        <a href="https://lj.s.gy/Wo8IuN" target="_blank">
-          <img src="https://api.fenno.ai/branding/standard/icon.webp" alt="FennoAI" height="90"/>
-          <br/>
-          <strong>FennoAI</strong>
-        </a>
-      </td>
-      <td valign="middle">
-        FennoAI is a highly stable, high-performance API relay provider for enterprise R&amp;D teams and developers. It is compatible with the OpenAI and Anthropic protocols and integrates seamlessly with Codex, Claude Code, OpenCode, and other mainstream AI coding tools. The platform supports enterprise-grade reliability at a scale of hundreds of billions of tokens per day, as well as business-to-business settlement and invoicing for domestic and international entities. As an exclusive benefit for AxonHub users, <a href="https://lj.s.gy/Wo8IuN" target="_blank">purchase a subscription through this link</a> for just $1.99 and receive $50 worth of Coding Plan credits. Referral rewards are also available, with up to 20% commission for successful referrals.
-      </td>
-    </tr>
-    <tr>
-      <td align="center" valign="middle">
-        <a href="https://bloome.im/app?ref=MjgMzmCY&utm_medium=github&utm_source=looplj-axonhub-ivor-202606" target="_blank">
-          <img src="docs/sponsors/bloome.png" alt="Bloome" height="90"/>
-          <br/>
-          <strong>Bloome</strong>
-        </a>
-      </td>
-      <td valign="middle">
-        Try AxonHub with zero local setup on Bloome:
-        <a href="https://bloome.im/app?ref=MjgMzmCY&utm_medium=github&utm_source=looplj-axonhub-ivor-202606" target="_blank">Quick start</a>,
-        one click from your browser or phone, easy to share with your team.
-      </td>
-    </tr>
-  </tbody>
-</table>
-
 ---
 
----
+
+> **This is a downstream branch of [looplj/axonhub](https://github.com/looplj/axonhub)**, tracking upstream and carrying small customisations for our own use.
+> Builds here are **unofficial**: versions look like `vX.Y.Z-mine.N` (`N` increments on the fork side), published on [Releases](https://github.com/keeyangyy/axonhub/releases), windows/amd64 only.
+> The upstream documentation applies; for the official project see [looplj/axonhub](https://github.com/looplj/axonhub).
 
 ## 📖 Project Introduction
 
@@ -143,24 +60,6 @@ Whether you're using OpenAI SDK, Anthropic SDK, or any AI SDK, AxonHub transpare
 For detailed technical documentation, API references, architecture design, and more:
 
 - 📑 **[Documentation Index](docs/en/index.md)** - Complete documentation navigation
-- [![DeepWiki](https://img.shields.io/badge/DeepWiki-looplj%2Faxonhub-blue.svg?logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACwAAAAyCAYAAAAnWDnqAAAAAXNSR0IArs4c6QAAA05JREFUaEPtmUtyEzEQhtWTQyQLHNak2AB7ZnyXZMEjXMGeK/AIi+QuHrMnbChYY7MIh8g01fJoopFb0uhhEqqcbWTp06/uv1saEDv4O3n3dV60RfP947Mm9/SQc0ICFQgzfc4CYZoTPAswgSJCCUJUnAAoRHOAUOcATwbmVLWdGoH//PB8mnKqScAhsD0kYP3j/Yt5LPQe2KvcXmGvRHcDnpxfL2zOYJ1mFwrryWTz0advv1Ut4CJgf5uhDuDj5eUcAUoahrdY/56ebRWeraTjMt/00Sh3UDtjgHtQNHwcRGOC98BJEAEymycmYcWwOprTgcB6VZ5JK5TAJ+fXGLBm3FDAmn6oPPjR4rKCAoJCal2eAiQp2x0vxTPB3ALO2CRkwmDy5WohzBDwSEFKRwPbknEggCPB/imwrycgxX2NzoMCHhPkDwqYMr9tRcP5qNrMZHkVnOjRMWwLCcr8ohBVb1OMjxLwGCvjTikrsBOiA6fNyCrm8V1rP93iVPpwaE+gO0SsWmPiXB+jikdf6SizrT5qKasx5j8ABbHpFTx+vFXp9EnYQmLx02h1QTTrl6eDqxLnGjporxl3NL3agEvXdT0WmEost648sQOYAeJS9Q7bfUVoMGnjo4AZdUMQku50McDcMWcBPvr0SzbTAFDfvJqwLzgxwATnCgnp4wDl6Aa+Ax283gghmj+vj7feE2KBBRMW3FzOpLOADl0Isb5587h/U4gGvkt5v60Z1VLG8BhYjbzRwyQZemwAd6cCR5/XFWLYZRIMpX39AR0tjaGGiGzLVyhse5C9RKC6ai42ppWPKiBagOvaYk8lO7DajerabOZP46Lby5wKjw1HCRx7p9sVMOWGzb/vA1hwiWc6jm3MvQDTogQkiqIhJV0nBQBTU+3okKCFDy9WwferkHjtxib7t3xIUQtHxnIwtx4mpg26/HfwVNVDb4oI9RHmx5WGelRVlrtiw43zboCLaxv46AZeB3IlTkwouebTr1y2NjSpHz68WNFjHvupy3q8TFn3Hos2IAk4Ju5dCo8B3wP7VPr/FGaKiG+T+v+TQqIrOqMTL1VdWV1DdmcbO8KXBz6esmYWYKPwDL5b5FA1a0hwapHiom0r/cKaoqr+27/XcrS5UwSMbQAAAABJRU5ErkJggg==)](https://deepwiki.com/looplj/axonhub)
-- [![zread](https://img.shields.io/badge/Ask_Zread-_.svg?style=flat&color=00b0aa&labelColor=000000&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTQuOTYxNTYgMS42MDAxSDIuMjQxNTZDMS44ODgxIDEuNjAwMSAxLjYwMTU2IDEuODg2NjQgMS42MDE1NiAyLjI0MDFWNC45NjAxQzEuNjAxNTYgNS4zMTM1NiAxLjg4ODEgNS42MDAxIDIuMjQxNTYgNS42MDAxSDQuOTYxNTZDNS4zMTUwMiA1LjYwMDEgNS42MDE1NiA1LjMxMzU2IDUuNjAxNTYgNC45NjAxVjIuMjQwMUM1LjYwMTU2IDEuODg2NjQgNS4zMTUwMiAxLjYwMDEgNC45NjE1NiAxLjYwMDFaIiBmaWxsPSIjZmZmIi8%2BCjxwYXRoIGQ9Ik00Ljk2MTU2IDEwLjM5OTlIMi4yNDE1NkMxLjg4ODEgMTAuMzk5OSAxLjYwMTU2IDEwLjY4NjQgMS42MDE1NiAxMS4wMzk5VjEzLjc1OTlDMS42MDE1NiAxNC4xMTM0IDEuODg4MSAxNC4zOTk5IDIuMjQxNTYgMTQuMzk5OUg0Ljk2MTU2QzUuMzE1MDIgMTQuMzk5OSA1LjYwMTU2IDE0LjExMzQgNS42MDE1NiAxMy43NTk5VjExLjAzOTlDNS42MDE1NiAxMC42ODY0IDUuMzE1MDIgMTAuMzk5OSA0Ljk2MTU2IDEwLjM5OTlaIiBmaWxsPSIjZmZmIi8%2BCjxwYXRoIGQ9Ik0xMy43NTg0IDEuNjAwMUgxMS4wMzg0QzEwLjY4NSAxLjYwMDEgMTAuMzk4NCAxLjg4NjY0IDEwLjM5ODQgMi4yNDAxVjQuOTYwMUMxMC4zOTg0IDUuMzEzNTYgMTAuNjg1IDUuNjAwMSAxMS4wMzg0IDUuNjAwMUgxMy43NTg0QzE0LjExMTkgNS42MDAxIDE0LjM5ODQgNS4zMTM1NiAxNC4zOTg0IDQuOTYwMVYyLjI0MDFDMTQuMzk4NCAxLjg4NjY0IDE0LjExMTkgMS42MDAxIDEzLjc1ODQgMS42MDAxWiIgZmlsbD0iI2ZmZiIvPgo8cGF0aCBkPSJNNCAxMkwxMiA0TDQgMTJaIiBmaWxsPSIjZmZmIi8%2BCjxwYXRoIGQ9Ik00IDEyTDEyIDQiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K&logoColor=ffffff)](https://zread.ai/looplj/axonhub)
-
----
-
-## 🎯 Demo
-
-Try AxonHub live at our [demo instance](https://axonhub.onrender.com)!
-
-**Note**：The demo instance currently configures Zhipu and OpenRouter free models.
-
-### Demo Account
-
-- **Email**: demo@example.com
-- **Password**: 12345678
-
----
-
 ## ⭐ Features
 
 ### 📸 Screenshots
@@ -253,7 +152,7 @@ Here are some screenshots of AxonHub in action:
 
 ## 🚀 Deployment Guide
 
-Ask your agent to read and follow [`deploy-axonhub`](https://github.com/looplj/axonhub-skills/blob/main/deploy-axonhub/SKILL.md) to deploy AxonHub.
+See the deployment section of the [documentation index](docs/en/index.md) for binaries, Docker Compose and Kubernetes.
 
 ---
 
@@ -297,43 +196,9 @@ For detailed development instructions, architecture design, and contribution gui
 
 ---
 
-## 👥 Team
-
-<table>
-  <tr>
-    <td align="center">
-      <a href="https://github.com/looplj">
-        <img src="https://github.com/looplj.png?size=100" width="100" alt="looplj"/><br/>
-        <sub><b>looplj</b></sub>
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/llc1123">
-        <img src="https://github.com/llc1123.png?size=100" width="100" alt="llc1123"/><br/>
-        <sub><b>llc1123</b></sub>
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/djdembeck">
-        <img src="https://github.com/djdembeck.png?size=100" width="100" alt="djdembeck"/><br/>
-        <sub><b>djdembeck</b></sub>
-      </a>
-    </td>
-  </tr>
-</table>
-
----
-
 ## 🤝 Acknowledgments
 
-- 🙏 [musistudio/llms](https://github.com/musistudio/llms) - LLM transformation framework, source of inspiration
-- 🎨 [satnaing/shadcn-admin](https://github.com/satnaing/shadcn-admin) - Admin interface template
-- 🔧 [99designs/gqlgen](https://github.com/99designs/gqlgen) - GraphQL code generation
-- 🌐 [gin-gonic/gin](https://github.com/gin-gonic/gin) - HTTP framework
-- 🗄️ [ent/ent](https://github.com/ent/ent) - ORM framework
-- 🔧 [air-verse/air](https://github.com/air-verse/air) - Auto reload Go service
-- ☁️ [Render](https://render.com) - Free cloud deployment platform for hosting our demo
-- 🗃️ [TiDB Cloud](https://www.pingcap.com/tidb-cloud/) - Serverless database platform for demo deployment
+This project is based on [looplj/axonhub](https://github.com/looplj/axonhub); thanks to its authors and all contributors. Third-party dependencies ([gin](https://github.com/gin-gonic/gin), [ent](https://github.com/ent/ent), [gqlgen](https://github.com/99designs/gqlgen), [shadcn-admin](https://github.com/satnaing/shadcn-admin), [llms](https://github.com/musistudio/llms) and others) remain under their own copyright — see `go.mod` and `package.json` for the full list.
 
 ---
 
@@ -347,8 +212,8 @@ This project is licensed under multiple licenses (Apache-2.0 and LGPL-3.0). See 
 
 **AxonHub** - All-in-one AI Development Platform, making AI development simpler
 
-[🏠 Homepage](https://github.com/looplj/axonhub) • [📚 Documentation](https://deepwiki.com/looplj/axonhub) • [🐛 Issue Feedback](https://github.com/looplj/axonhub/issues)
+[🏠 This repository](https://github.com/keeyangyy/axonhub) • [⬆️ Upstream](https://github.com/looplj/axonhub) • [🐛 Issue Feedback](https://github.com/keeyangyy/axonhub/issues)
 
-Built with ❤️ by the AxonHub team
+Based on [AxonHub](https://github.com/looplj/axonhub) by the AxonHub team
 
 </div>

@@ -3,108 +3,25 @@
 # AxonHub - All-in-one AI 开发平台
 ### 任意 SDK、任意模型、零代码改动
 
-<a href="https://trendshift.io/repositories/16225" target="_blank"><img src="https://trendshift.io/api/badge/repositories/16225" alt="looplj%2Faxonhub | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-
 </div>
 
 <div align="center">
 
-[![测试状态](https://github.com/looplj/axonhub/actions/workflows/test.yml/badge.svg)](https://github.com/looplj/axonhub/actions/workflows/test.yml)
-[![Lint 状态](https://github.com/looplj/axonhub/actions/workflows/lint.yml/badge.svg)](https://github.com/looplj/axonhub/actions/workflows/lint.yml)
-[![Go 版本](https://img.shields.io/github/go-mod/go-version/looplj/axonhub?logo=go&logoColor=white)](https://golang.org/)
+[![测试状态](https://github.com/keeyangyy/axonhub/actions/workflows/test.yml/badge.svg)](https://github.com/keeyangyy/axonhub/actions/workflows/test.yml)
+[![Lint 状态](https://github.com/keeyangyy/axonhub/actions/workflows/lint.yml/badge.svg)](https://github.com/keeyangyy/axonhub/actions/workflows/lint.yml)
+[![Go 版本](https://img.shields.io/github/go-mod/go-version/keeyangyy/axonhub?logo=go&logoColor=white)](https://golang.org/)
 [![Docker Ready](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)](https://docker.com)
-[![Greptile: The War on Bugs](https://www.greptile.com/badge.svg)](https://www.greptile.com/?utm_source=oss_badge&utm_medium=readme&utm_campaign=greptile_for_open_source)
 
-[English](README.en-US.md) | [中文](README.md) | [日本語](README.ja-JP.md)
-
-</div>
-
----
-
-> 🚀 **试试我的新项目 [Reveric（幻界）](https://lj.s.gy/LDfOjx)**：Agent Native 创作工作台，从小说、剧本到自动生成视频、自动剪辑成片，让智能体参与创作全流程。
-
-## ❤️ 赞助
-
-<div align="center">
-
-<table width="100%">
-  <tr>
-    <td width="100%" align="center" valign="top">
-      <a href="https://apikey.fun/register?aff=axonhub" target="_blank">
-        <img src="docs/sponsors/apikey-fun.png" alt="APIKEY.FUN" height="50"/>
-        <br/>
-        <strong>APIKEY.FUN</strong>
-      </a>
-      <div align="center">
-        <a href="https://apikey.fun/register?aff=axonhub" target="_blank">
-          <img src="docs/sponsors/api-key.fun.banner.png" alt="APIKEY.FUN banner" width="100%"/>
-        </a>
-      </div>
-      <div align="left">
-        APIKEY.FUN 是一家专业的企业级 AI 中转站，致力于为企业和个人开发者提供稳定、高效、低成本的 AI 模型 API 接入服务。<br/>
-        平台支持 Claude、OpenAI、Gemini 等主流热门模型，价格低至官方原价的 7%。<br/>
-        AxonHub 用户通过<a href="https://apikey.fun/register?aff=axonhub" target="_blank">专属链接注册</a>，还可享受最高充值永久 95 折专属优惠。
-      </div>
-    </td>
-  </tr>
-</table>
+[English](README.en-US.md) | [中文](README.md)
 
 </div>
 
-<br/>
-
-<table border="1" cellspacing="0" cellpadding="16">
-  <thead>
-    <tr>
-      <th align="center" width="220">赞助</th>
-      <th align="left">详情</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td align="center" valign="middle">
-        <a href="https://lj.s.gy/8HNo22" target="_blank">
-          <img src="https://www-static.qbox.me/_next/static/media/logo.0fc18feaa621d2068a7180631f742256.jpg" alt="七牛云 AI" height="90"/>
-          <br/>
-          <strong>七牛云 AI</strong>
-        </a>
-      </td>
-      <td valign="middle">
-        七牛云 AI 是七牛云（02567.HK）旗下企业级大模型 MaaS 平台，一站式调用全球 150+ 主流模型，兼容全球主流模型厂商协议，覆盖文本、图像、音频、视频、文件处理等全模态处理能力，服务超过 169 万企业及开发者用户。七牛云 AI 为 AxonHub 项目的用户提供了专属福利：通过<a href="https://lj.s.gy/8HNo22" target="_blank">此链接</a>注册，企业用户免费领 1200 万 Token，开发者免费领 300 万 Token。
-      </td>
-    </tr>
-    <tr>
-      <td align="center" valign="middle">
-        <a href="https://lj.s.gy/Wo8IuN" target="_blank">
-          <img src="https://api.fenno.ai/branding/standard/icon.webp" alt="FennoAI" height="90"/>
-          <br/>
-          <strong>FennoAI</strong>
-        </a>
-      </td>
-      <td valign="middle">
-        FennoAI 是一家面向企业研发团队和开发者的高稳定、高性能 API 中转服务商，兼容 OpenAI 与 Anthropic 协议，可无缝接入 Codex、Claude Code、OpenCode 等主流 AI 编程工具。平台具备企业级稳定性，可支撑千亿 Token/日的调用规模，并支持境内外主体公对公结算及开票，满足企业级研发与采购需求。作为 AxonHub 用户专属福利，通过<a href="https://lj.s.gy/Wo8IuN" target="_blank">专属链接</a>购买订阅，仅需 1.99 美元即可获得价值 50 美元的 Coding Plan 额度。同时支持邀请奖励，邀请好友购买最高可获得 20% 返佣，邀请越多，奖励越高。
-      </td>
-    </tr>
-    <tr>
-      <td align="center" valign="middle">
-        <a href="https://bloome.im/app?ref=MjgMzmCY&utm_medium=github&utm_source=looplj-axonhub-ivor-202606" target="_blank">
-          <img src="docs/sponsors/bloome.png" alt="Bloome" height="90"/>
-          <br/>
-          <strong>Bloome</strong>
-        </a>
-      </td>
-      <td valign="middle">
-        想试用 AxonHub，但不想在本地配置环境？可以在 Bloome 上运行：
-        <a href="https://bloome.im/app?ref=MjgMzmCY&utm_medium=github&utm_source=looplj-axonhub-ivor-202606" target="_blank">快速使用</a>，
-        通过浏览器或手机一键启动，也可以轻松分享给你的团队。
-      </td>
-    </tr>
-  </tbody>
-</table>
-
 ---
 
----
+
+> **本仓库是 [looplj/axonhub](https://github.com/looplj/axonhub) 的下游分支**，跟随上游合并，并按自用需求做少量定制。
+> 这里是**非官方构建**：版本号形如 `vX.Y.Z-mine.N`（`N` 为 fork 侧递增序号），产物见 [Releases](https://github.com/keeyangyy/axonhub/releases)，仅 windows/amd64。
+> 上游文档同样适用；官方版本请以 [looplj/axonhub](https://github.com/looplj/axonhub) 为准。
 
 ## 📖 项目介绍
 
@@ -143,26 +60,6 @@
 ### 文档索引 | Documentation Index
 
 - 📑 **[完整文档索引](docs/zh/index.md)** - 所有文档导航和快速查找
-
-### DeepWiki
-详细的技术文档、API 参考、架构设计等内容，可以访问
-- [![DeepWiki](https://img.shields.io/badge/DeepWiki-looplj%2Faxonhub-blue.svg?logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACwAAAAyCAYAAAAnWDnqAAAAAXNSR0IArs4c6QAAA05JREFUaEPtmUtyEzEQhtWTQyQLHNak2AB7ZnyXZMEjXMGeK/AIi+QuHrMnbChYY7MIh8g01fJoopFb0uhhEqqcbWTp06/uv1saEDv4O3n3dV60RfP947Mm9/SQc0ICFQgzfc4CYZoTPAswgSJCCUJUnAAoRHOAUOcATwbmVLWdGoH//PB8mnKqScAhsD0kYP3j/Yt5LPQe2KvcXmGvRHcDnpxfL2zOYJ1mFwrryWTz0advv1Ut4CJgf5uhDuDj5eUcAUoahrdY/56ebRWeraTjMt/00Sh3UDtjgHtQNHwcRGOC98BJEAEymycmYcWwOprTgcB6VZ5JK5TAJ+fXGLBm3FDAmn6oPPjR4rKCAoJCal2eAiQp2x0vxTPB3ALO2CRkwmDy5WohzBDwSEFKRwPbknEggCPB/imwrycgxX2NzoMCHhPkDwqYMr9tRcP5qNrMZHkVnOjRMWwLCcr8ohBVb1OMjxLwGCvjTikrsBOiA6fNyCrm8V1rP93iVPpwaE+gO0SsWmPiXB+jikdf6SizrT5qKasx5j8ABbHpFTx+vFXp9EnYQmLx02h1QTTrl6eDqxLnGjporxl3NL3agEvXdT0WmEost648sQOYAeJS9Q7bfUVoMGnjo4AZdUMQku50McDcMWcBPvr0SzbTAFDfvJqwLzgxwATnCgnp4wDl6Aa+Ax283gghmj+vj7feE2KBBRMW3FzOpLOADl0Isb5587h/U4gGvkt5v60Z1VLG8BhYjbzRwyQZemwAd6cCR5/XFWLYZRIMpX39AR0tjaGGiGzLVyhse5C9RKC6ai42ppWPKiBagOvaYk8lO7DajerabOZP46Lby5wKjw1HCRx7p9sVMOWGzb/vA1hwiWc6jm3MvQDTogQkiqIhJV0nBQBTU+3okKCFDy9WwferkHjtxib7t3xIUQtHxnIwtx4mpg26/HfwVNVDb4oI9RHmx5WGelRVlrtiw43zboCLaxv46AZeB3IlTkwouebTr1y2NjSpHz68WNFjHvupy3q8TFn3Hos2IAk4Ju5dCo8B3wP7VPr/FGaKiG+T+v+TQqIrOqMTL1VdWV1DdmcbO8KXBz6esmYWYKPwDL5b5FA1a0hwapHiom0r/cKaoqr+27/XcrS5UwSMbQAAAABJRU5ErkJggg==)](https://deepwiki.com/looplj/axonhub)
-- [![zread](https://img.shields.io/badge/Ask_Zread-_.svg?style=flat&color=00b0aa&labelColor=000000&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTQuOTYxNTYgMS42MDAxSDIuMjQxNTZDMS44ODgxIDEuNjAwMSAxLjYwMTU2IDEuODg2NjQgMS42MDE1NiAyLjI0MDFWNC45NjAxQzEuNjAxNTYgNS4zMTM1NiAxLjg4ODEgNS42MDAxIDIuMjQxNTYgNS42MDAxSDQuOTYxNTZDNS4zMTUwMiA1LjYwMDEgNS42MDE1NiA1LjMxMzU2IDUuNjAxNTYgNC45NjAxVjIuMjQwMUM1LjYwMTU2IDEuODg2NjQgNS4zMTUwMiAxLjYwMDEgNC45NjE1NiAxLjYwMDFaIiBmaWxsPSIjZmZmIi8%2BCjxwYXRoIGQ9Ik00Ljk2MTU2IDEwLjM5OTlIMi4yNDE1NkMxLjg4ODEgMTAuMzk5OSAxLjYwMTU2IDEwLjY4NjQgMS42MDE1NiAxMS4wMzk5VjEzLjc1OTlDMS42MDE1NiAxNC4xMTM0IDEuODg4MSAxNC4zOTk5IDIuMjQxNTYgMTQuMzk5OUg0Ljk2MTU2QzUuMzE1MDIgMTQuMzk5OSA1LjYwMTU2IDE0LjExMzQgNS42MDE1NiAxMy43NTk5VjExLjAzOTlDNS42MDE1NiAxMC42ODY0IDUuMzE1MDIgMTAuMzk5OSA0Ljk2MTU2IDEwLjM5OTlaIiBmaWxsPSIjZmZmIi8%2BCjxwYXRoIGQ9Ik0xMy43NTg0IDEuNjAwMUgxMS4wMzg0QzEwLjY4NSAxLjYwMDEgMTAuMzk4NCAxLjg4NjY0IDEwLjM5ODQgMi4yNDAxVjQuOTYwMUMxMC4zOTg0IDUuMzEzNTYgMTAuNjg1IDUuNjAwMSAxMS4wMzg0IDUuNjAwMUgxMy43NTg0QzE0LjExMTkgNS42MDAxIDE0LjM5ODQgNS4zMTM1NiAxNC4zOTg0IDQuOTYwMVYyLjI0MDFDMTQuMzk4NCAxLjg4NjY0IDE0LjExMTkgMS42MDAxIDEzLjc1ODQgMS42MDAxWiIgZmlsbD0iI2ZmZiIvPgo8cGF0aCBkPSJNNCAxMkwxMiA0TDQgMTJaIiBmaWxsPSIjZmZmIi8%2BCjxwYXRoIGQ9Ik00IDEyTDEyIDQiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K&logoColor=ffffff)](https://zread.ai/looplj/axonhub)
-
-
----
-
-## 🎯 演示 | Demo
-
-在我们的 [演示实例](https://axonhub.onrender.com) 上体验 AxonHub！
-
-**注意**：演示网站目前配置了 Zhipu 和 OpenRouter 的免费模型。
-
-### 演示账号 | Demo Account
-- **邮箱 Email**: demo@example.com
-- **密码 Password**: 12345678
-
----
 
 ## ⭐ 特性 | Features
 
@@ -257,7 +154,7 @@
 
 ## 🚀 部署指南 | Deployment Guide
 
-让你的 Agent 读取并遵循 [`deploy-axonhub`](https://github.com/looplj/axonhub-skills/blob/main/deploy-axonhub/SKILL.md) 来部署 AxonHub。
+部署方式（二进制、Docker Compose、Kubernetes）见 [完整文档索引](docs/zh/index.md) 中的部署章节。
 
 ---
 
@@ -301,43 +198,9 @@ print(response.choices[0].message.content)
 
 ---
 
-## 👥 团队 | Team
-
-<table>
-  <tr>
-    <td align="center">
-      <a href="https://github.com/looplj">
-        <img src="https://github.com/looplj.png?size=100" width="100" alt="looplj"/><br/>
-        <sub><b>looplj</b></sub>
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/llc1123">
-        <img src="https://github.com/llc1123.png?size=100" width="100" alt="llc1123"/><br/>
-        <sub><b>llc1123</b></sub>
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/djdembeck">
-        <img src="https://github.com/djdembeck.png?size=100" width="100" alt="djdembeck"/><br/>
-        <sub><b>djdembeck</b></sub>
-      </a>
-    </td>
-  </tr>
-</table>
-
----
-
 ## 🤝 致谢 | Acknowledgments
 
-- 🙏 [musistudio/llms](https://github.com/musistudio/llms) - LLM 转换框架，灵感来源
-- 🎨 [satnaing/shadcn-admin](https://github.com/satnaing/shadcn-admin) - 管理界面模板
-- 🔧 [99designs/gqlgen](https://github.com/99designs/gqlgen) - GraphQL 代码生成
-- 🌐 [gin-gonic/gin](https://github.com/gin-gonic/gin) - HTTP 框架
-- 🗄️ [ent/ent](https://github.com/ent/ent) - ORM 框架
-- 🔧 [air-verse/air](https://github.com/air-verse/air) - 自动重载 Go 服务
-- ☁️ [render](https://render.com) - 免费云部署平台，用于部署 demo
-- 🗄️ [tidbcloud](https://www.pingcap.com/tidb-cloud/) - Serverless 数据库平台，用于部署 demo
+本项目基于 [looplj/axonhub](https://github.com/looplj/axonhub)，感谢上游作者与所有贡献者。第三方依赖（[gin](https://github.com/gin-gonic/gin)、[ent](https://github.com/ent/ent)、[gqlgen](https://github.com/99designs/gqlgen)、[shadcn-admin](https://github.com/satnaing/shadcn-admin)、[llms](https://github.com/musistudio/llms) 等）版权归各自作者所有，完整清单见 `go.mod` 与 `package.json`。
 
 ---
 
@@ -351,8 +214,8 @@ print(response.choices[0].message.content)
 
 **AxonHub** - All-in-one AI 开发平台，让 AI 开发更简单
 
-[🏠 官网](https://github.com/looplj/axonhub) • [📚 文档](https://deepwiki.com/looplj/axonhub) • [🐛 问题反馈](https://github.com/looplj/axonhub/issues)
+[🏠 本仓库](https://github.com/keeyangyy/axonhub) • [⬆️ 上游项目](https://github.com/looplj/axonhub) • [🐛 问题反馈](https://github.com/keeyangyy/axonhub/issues)
 
-Built with ❤️ by the AxonHub team
+Based on [AxonHub](https://github.com/looplj/axonhub) by the AxonHub team
 
 </div>
