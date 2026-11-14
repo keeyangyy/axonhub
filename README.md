@@ -10,7 +10,6 @@
 [![测试状态](https://github.com/keeyangyy/axonhub/actions/workflows/test.yml/badge.svg)](https://github.com/keeyangyy/axonhub/actions/workflows/test.yml)
 [![Lint 状态](https://github.com/keeyangyy/axonhub/actions/workflows/lint.yml/badge.svg)](https://github.com/keeyangyy/axonhub/actions/workflows/lint.yml)
 [![Go 版本](https://img.shields.io/github/go-mod/go-version/keeyangyy/axonhub?logo=go&logoColor=white)](https://golang.org/)
-[![Docker Ready](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)](https://docker.com)
 
 [English](README.en-US.md) | [中文](README.md)
 
@@ -154,7 +153,7 @@
 
 ## 🚀 部署指南 | Deployment Guide
 
-部署方式（二进制、Docker Compose、Kubernetes）见 [完整文档索引](docs/zh/index.md) 中的部署章节。
+本仓库只提供 windows/amd64 二进制：从 [Releases](https://github.com/keeyangyy/axonhub/releases) 下载 zip，解压后运行 `axonhub.exe`。其余部署方式与配置见 [完整文档索引](docs/zh/index.md)（上游文档同样适用）。
 
 ---
 

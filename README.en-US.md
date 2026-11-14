@@ -10,7 +10,6 @@
 [![Test Status](https://github.com/keeyangyy/axonhub/actions/workflows/test.yml/badge.svg)](https://github.com/keeyangyy/axonhub/actions/workflows/test.yml)
 [![Lint Status](https://github.com/keeyangyy/axonhub/actions/workflows/lint.yml/badge.svg)](https://github.com/keeyangyy/axonhub/actions/workflows/lint.yml)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/keeyangyy/axonhub?logo=go&logoColor=white)](https://golang.org/)
-[![Docker Ready](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)](https://docker.com)
 
 [English](README.en-US.md) | [中文](README.md)
 
@@ -152,7 +151,7 @@ Here are some screenshots of AxonHub in action:
 
 ## 🚀 Deployment Guide
 
-See the deployment section of the [documentation index](docs/en/index.md) for binaries, Docker Compose and Kubernetes.
+This repository only ships windows/amd64 binaries: download the zip from [Releases](https://github.com/keeyangyy/axonhub/releases) and run `axonhub.exe`. For other deployment options and configuration, see the [documentation index](docs/en/index.md) (the upstream documentation applies).
 
 ---
 
