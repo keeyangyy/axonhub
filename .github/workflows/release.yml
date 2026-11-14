@@ -11,7 +11,7 @@ permissions:
   actions: read
 
 jobs:
-  # One frontend build for the server archives and every desktop installer.
+  # One frontend build for the server archives.
   # Uploading the artifact is the only step that needs actions: write.
   frontend:
     name: Frontend
