@@ -118,14 +118,3 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           SKIP_FRONTEND_BUILD: "1"
-
-  # Same tag as the server release above. Desktop waits so its installers
-  # upload onto the draft GoReleaser opened, at internal/build/VERSION.
-  # It reuses the frontend artifact instead of building it again.
-  desktop:
-    needs: [frontend, goreleaser]
-    uses: ./.github/workflows/desktop-release.yml
-    secrets: inherit
-    with:
-      tag: ${{ github.ref_name }}
-      frontend-artifact: frontend-dist
