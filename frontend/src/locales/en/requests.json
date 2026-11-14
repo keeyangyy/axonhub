@@ -161,7 +161,7 @@
   "requests.detail.routedModel": "Channel model",
   "requests.detail.upstreamModels": "Upstream-reported model",
   "requests.metricColors.title": "Metric colours",
-  "requests.metricColors.description": "Each dashed line ties a value to the boundary it controls. The last value has no upper limit, so the band stretches with it.",
+  "requests.metricColors.description": "Colour the request list metrics by tier: each dashed line ties a boundary to the value that controls it, and the boundary can be dragged.",
   "requests.metricColors.open": "Metric colours",
   "requests.metricColors.reset": "Reset to defaults",
   "requests.metricColors.localOnlyHint": "Changes apply immediately and stay in this browser",

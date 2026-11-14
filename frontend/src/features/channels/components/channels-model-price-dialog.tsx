@@ -33,9 +33,10 @@ const priceItemCodes = ['prompt_tokens', 'completion_tokens', 'prompt_cached_tok
 const pricingModes = ['flat_fee', 'usage_per_unit', 'usage_tiered', 'usage_volume'] as const;
 const promptWriteCacheVariantCodes = ['five_min', 'one_hour'] as const;
 
-// 填充模型库价格时的默认汇率（库内价为 USD/MTok，×7.14 ≈ 官方人民币价，
-// 精确值 50/7：deepseek-chat 0.14/0.28/0.0028 → ¥1/¥2/¥0.02）。
-// 不持久化：每次打开对话框重置为默认值，需要时手动修改。
+// Default exchange rate applied when filling prices from the model library.
+// Library prices are in USD/MTok; 7.14 (exactly 50/7) matches the official
+// CNY prices (deepseek-chat 0.14/0.28/0.0028 -> CNY 1 / 2 / 0.02).
+// Not persisted: the dialog resets to the default on every open.
 const DEFAULT_EXCHANGE_RATE = 7.14;
 
 const createPriceFormSchema = (t: (key: string) => string) =>
@@ -1330,7 +1331,7 @@ export function ChannelsModelPriceDialog() {
               </div>
             </div>
 
-            <DialogFooter className='mt-6 shrink-0 gap-2 sm:justify-between'>
+            <DialogFooter pinned align='between' className='mt-6'>
               <div className='flex flex-wrap items-center gap-2'>
                 <Button type='button' variant='outline' data-testid='price-add-button' onClick={addPrice}>
                   <IconPlus className='mr-2 h-4 w-4' />
