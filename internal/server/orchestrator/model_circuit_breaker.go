@@ -179,19 +179,7 @@ type probeReleasingStream struct {
 }
 
 func (s *probeReleasingStream) Next() bool {
-	if s.stream.Next() {
-		return true
-	}
-
-	// A stream that ends without an error is a successful response even when the
-	// provider never reported token usage, which is common for streaming. TTL
-	// recovery is gone, so without this fallback an Open circuit would stay Open
-	// after a stream that actually worked.
-	if s.stream.Err() == nil {
-		s.recordSuccess()
-	}
-
-	return false
+	return s.stream.Next()
 }
 
 func (s *probeReleasingStream) Current() *llm.Response {
@@ -200,15 +188,42 @@ func (s *probeReleasingStream) Current() *llm.Response {
 		return nil
 	}
 
-	// Record as soon as the provider reports usage, so the circuit closes without
-	// waiting for the stream to end.
-	if !s.recorded {
-		if tokenCount := event.Usage.GetCompletionTokens(); tokenCount != nil && *tokenCount > 0 {
-			s.recordSuccess()
-		}
+	// Close the circuit as soon as the response proves it worked. Do not wait for
+	// the stream to end: the pipeline may still reject the attempt afterwards.
+	if !s.recorded && responseProvesCompletion(event) {
+		s.recordSuccess()
 	}
 
 	return event
+}
+
+// responseProvesCompletion reports whether an event proves the response actually
+// finished: a protocol terminal marker or reported token usage.
+//
+// Merely ending without an error is not proof. An empty or metadata-only stream
+// ends cleanly too, and the pipeline turns that into llm.ErrStreamIncomplete;
+// recording success there would keep clearing the failure counter instead of
+// letting the circuit open or the probe back off.
+func responseProvesCompletion(event *llm.Response) bool {
+	if event == nil {
+		return false
+	}
+
+	if event == llm.DoneResponse || event.Object == "[DONE]" {
+		return true
+	}
+
+	for _, choice := range event.Choices {
+		if choice.FinishReason != nil {
+			return true
+		}
+	}
+
+	if tokenCount := event.Usage.GetCompletionTokens(); tokenCount != nil && *tokenCount > 0 {
+		return true
+	}
+
+	return false
 }
 
 // recordSuccess marks the model healthy once per stream. It is a no-op when the
